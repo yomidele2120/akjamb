@@ -79,10 +79,12 @@ const Login = () => {
 
     try {
       // Check whitelist
-      const { data: whitelistData, error: whitelistError } = await supabase
+      const { data: rawData2, error: whitelistError } = await supabase
         .rpc('check_email_whitelist', { check_email: email.trim() });
 
       if (whitelistError) throw whitelistError;
+
+      const whitelistData = rawData2 as unknown as { exists: boolean; is_used: boolean; linked_user_id: string | null };
 
       if (!whitelistData?.exists) {
         setError('You are not registered for this lesson program.');
