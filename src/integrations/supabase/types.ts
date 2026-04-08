@@ -14,13 +14,86 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      allowed_users: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          is_used: boolean
+          linked_user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          is_used?: boolean
+          linked_user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          is_used?: boolean
+          linked_user_id?: string | null
+        }
+        Relationships: []
+      }
+      settings: {
+        Row: {
+          general_password: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          general_password: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          general_password?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      users: {
+        Row: {
+          created_at: string
+          email: string
+          full_name: string
+          has_set_password: boolean
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          full_name: string
+          has_set_password?: boolean
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          full_name?: string
+          has_set_password?: boolean
+          id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      check_email_whitelist: { Args: { check_email: string }; Returns: Json }
+      complete_account_setup: {
+        Args: { user_email: string; user_id: string }
+        Returns: boolean
+      }
+      verify_general_password: {
+        Args: { input_password: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
