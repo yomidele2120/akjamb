@@ -5,10 +5,16 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import AdminRoute from "@/components/AdminRoute";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import AccountSetup from "./pages/AccountSetup";
 import Dashboard from "./pages/Dashboard";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AllowedStudents from "./pages/admin/AllowedStudents";
+import Subjects from "./pages/admin/Subjects";
+import Topics from "./pages/admin/Topics";
+import QuestionBank from "./pages/admin/QuestionBank";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +38,11 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+            <Route path="/admin/students" element={<AdminRoute><AllowedStudents /></AdminRoute>} />
+            <Route path="/admin/subjects" element={<AdminRoute><Subjects /></AdminRoute>} />
+            <Route path="/admin/topics" element={<AdminRoute><Topics /></AdminRoute>} />
+            <Route path="/admin/questions" element={<AdminRoute><QuestionBank /></AdminRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
