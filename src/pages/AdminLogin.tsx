@@ -39,11 +39,18 @@ const AdminLogin = () => {
         return;
       }
 
-      // Check if user is admin
+      // Check if user is admin using their auth id
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
+        setError('Authentication failed.');
+        setLoading(false);
+        return;
+      }
+
       const { data: userData } = await supabase
         .from('users')
         .select('role')
-        .eq('email', email.trim())
+        .eq('id', authUser.id)
         .single();
 
       if (userData?.role !== 'admin') {
