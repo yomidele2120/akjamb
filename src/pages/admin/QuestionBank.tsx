@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Upload, FileText, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -30,11 +30,15 @@ const QuestionBank = () => {
   const [filterSubject, setFilterSubject] = useState('all');
   const [filterTopic, setFilterTopic] = useState('all');
   const [open, setOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [bulkSubject, setBulkSubject] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
-  // Form state
   const [form, setForm] = useState({
     subject_id: '', topic_id: '', question_text: '',
     option_a: '', option_b: '', option_c: '', option_d: '',
@@ -56,7 +60,7 @@ const QuestionBank = () => {
   useEffect(() => { fetchAll(); }, []);
 
   const filteredTopics = topics.filter(t => form.subject_id ? t.subject_id === form.subject_id : true);
-  const filterTopics = topics.filter(t => filterSubject !== 'all' ? t.subject_id === filterSubject : true);
+  const filterTopicsList = topics.filter(t => filterSubject !== 'all' ? t.subject_id === filterSubject : true);
 
   const filtered = questions.filter(q => {
     if (filterSubject !== 'all' && q.subject_id !== filterSubject) return false;
@@ -86,6 +90,57 @@ const QuestionBank = () => {
     fetchAll();
   };
 
+  const handleBulkUpload = async () => {
+    if (!selectedFile || !bulkSubject) {
+      toast({ title: 'Error', description: 'Please select a subject and file', variant: 'destructive' });
+      return;
+    }
+
+    const allowedTypes = ['application/pdf', 'text/csv', 'text/plain'];
+    const ext = selectedFile.name.split('.').pop()?.toLowerCase();
+    if (!allowedTypes.includes(selectedFile.type) && ext !== 'csv' && ext !== 'pdf') {
+      toast({ title: 'Error', description: 'Only PDF and CSV files are supported', variant: 'destructive' });
+      return;
+    }
+
+    if (selectedFile.size > 20 * 1024 * 1024) {
+      toast({ title: 'Error', description: 'File must be under 20MB', variant: 'destructive' });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const buffer = await selectedFile.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const file_base64 = btoa(binary);
+      const file_type = ext === 'pdf' ? 'pdf' : 'csv';
+
+      const { data, error } = await supabase.functions.invoke('parse-questions', {
+        body: { file_base64, file_type, subject_id: bulkSubject },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({
+        title: 'Upload Successful!',
+        description: `${data.count} questions added${data.topics_created > 0 ? `, ${data.topics_created} new topics created` : ''}`,
+      });
+      setBulkOpen(false);
+      setSelectedFile(null);
+      setBulkSubject('');
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: 'Upload Failed', description: e.message || 'Something went wrong', variant: 'destructive' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const getSubjectName = (id: string) => subjects.find(s => s.id === id)?.name ?? '';
   const getTopicName = (id: string) => topics.find(t => t.id === id)?.name ?? '';
 
@@ -96,56 +151,124 @@ const QuestionBank = () => {
           <h1 className="font-heading text-2xl font-bold">Question Bank</h1>
           <p className="text-sm text-muted-foreground">{filtered.length} question{filtered.length !== 1 ? 's' : ''}</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="gap-1"><Plus className="h-4 w-4" />Add Question</Button>
-          </DialogTrigger>
-          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-            <DialogHeader><DialogTitle>Add Question</DialogTitle></DialogHeader>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="flex gap-2">
+          {/* Bulk Upload Dialog */}
+          <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="outline" className="gap-1">
+                <Upload className="h-4 w-4" />Bulk Upload
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Bulk Upload Questions</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                Upload a PDF or CSV file with questions. AI will automatically extract questions, detect topics, and organize everything.
+              </p>
+              <div className="space-y-4 pt-2">
                 <div className="space-y-2">
                   <Label>Subject</Label>
-                  <Select value={form.subject_id} onValueChange={v => setForm(f => ({ ...f, subject_id: v, topic_id: '' }))}>
-                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>{subjects.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                  <Select value={bulkSubject} onValueChange={setBulkSubject}>
+                    <SelectTrigger><SelectValue placeholder="Select subject" /></SelectTrigger>
+                    <SelectContent>
+                      {subjects.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                    </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Topic</Label>
-                  <Select value={form.topic_id} onValueChange={v => setForm(f => ({ ...f, topic_id: v }))} disabled={!form.subject_id}>
+                  <Label>File (PDF or CSV)</Label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.csv"
+                    className="hidden"
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
+                  />
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start gap-2"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <FileText className="h-4 w-4" />
+                    {selectedFile ? selectedFile.name : 'Choose file...'}
+                  </Button>
+                  {selectedFile && (
+                    <p className="text-xs text-muted-foreground">
+                      {(selectedFile.size / 1024).toFixed(1)} KB • {selectedFile.name.split('.').pop()?.toUpperCase()}
+                    </p>
+                  )}
+                </div>
+                <Button
+                  onClick={handleBulkUpload}
+                  disabled={uploading || !bulkSubject || !selectedFile}
+                  className="w-full"
+                >
+                  {uploading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      AI is processing...
+                    </>
+                  ) : (
+                    'Upload & Process'
+                  )}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Add Single Question Dialog */}
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-1"><Plus className="h-4 w-4" />Add Question</Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+              <DialogHeader><DialogTitle>Add Question</DialogTitle></DialogHeader>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Subject</Label>
+                    <Select value={form.subject_id} onValueChange={v => setForm(f => ({ ...f, subject_id: v, topic_id: '' }))}>
+                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent>{subjects.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Topic</Label>
+                    <Select value={form.topic_id} onValueChange={v => setForm(f => ({ ...f, topic_id: v }))} disabled={!form.subject_id}>
+                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent>{filteredTopics.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Question</Label>
+                  <Textarea rows={3} value={form.question_text} onChange={e => setForm(f => ({ ...f, question_text: e.target.value }))} placeholder="Enter question text" />
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {(['A', 'B', 'C', 'D'] as const).map(opt => (
+                    <div key={opt} className="space-y-1">
+                      <Label>Option {opt}</Label>
+                      <Input value={form[`option_${opt.toLowerCase()}` as keyof typeof form]} onChange={e => setForm(f => ({ ...f, [`option_${opt.toLowerCase()}`]: e.target.value }))} />
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-2">
+                  <Label>Correct Answer</Label>
+                  <Select value={form.correct_option} onValueChange={v => setForm(f => ({ ...f, correct_option: v }))}>
                     <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>{filteredTopics.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                    <SelectContent>{['A','B','C','D'].map(o => <SelectItem key={o} value={o}>Option {o}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2">
+                  <Label>Explanation (optional)</Label>
+                  <Textarea rows={2} value={form.explanation} onChange={e => setForm(f => ({ ...f, explanation: e.target.value }))} />
+                </div>
+                <Button onClick={addQuestion} className="w-full">Add Question</Button>
               </div>
-              <div className="space-y-2">
-                <Label>Question</Label>
-                <Textarea rows={3} value={form.question_text} onChange={e => setForm(f => ({ ...f, question_text: e.target.value }))} placeholder="Enter question text" />
-              </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {(['A', 'B', 'C', 'D'] as const).map(opt => (
-                  <div key={opt} className="space-y-1">
-                    <Label>Option {opt}</Label>
-                    <Input value={form[`option_${opt.toLowerCase()}` as keyof typeof form]} onChange={e => setForm(f => ({ ...f, [`option_${opt.toLowerCase()}`]: e.target.value }))} />
-                  </div>
-                ))}
-              </div>
-              <div className="space-y-2">
-                <Label>Correct Answer</Label>
-                <Select value={form.correct_option} onValueChange={v => setForm(f => ({ ...f, correct_option: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>{['A','B','C','D'].map(o => <SelectItem key={o} value={o}>Option {o}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Explanation (optional)</Label>
-                <Textarea rows={2} value={form.explanation} onChange={e => setForm(f => ({ ...f, explanation: e.target.value }))} />
-              </div>
-              <Button onClick={addQuestion} className="w-full">Add Question</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Filters */}
@@ -161,7 +284,7 @@ const QuestionBank = () => {
           <SelectTrigger className="sm:w-48"><SelectValue placeholder="All Topics" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Topics</SelectItem>
-            {filterTopics.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+            {filterTopicsList.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
