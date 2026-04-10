@@ -38,6 +38,96 @@ export type Database = {
         }
         Relationships: []
       }
+      practice_answers: {
+        Row: {
+          correct_option: string
+          created_at: string
+          id: string
+          is_correct: boolean
+          question_id: string
+          selected_option: string
+          session_id: string
+        }
+        Insert: {
+          correct_option: string
+          created_at?: string
+          id?: string
+          is_correct: boolean
+          question_id: string
+          selected_option: string
+          session_id: string
+        }
+        Update: {
+          correct_option?: string
+          created_at?: string
+          id?: string
+          is_correct?: boolean
+          question_id?: string
+          selected_option?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_answers_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "practice_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      practice_sessions: {
+        Row: {
+          correct_answers: number
+          created_at: string
+          id: string
+          subject_id: string
+          topic_id: string
+          total_questions: number
+          user_id: string
+        }
+        Insert: {
+          correct_answers?: number
+          created_at?: string
+          id?: string
+          subject_id: string
+          topic_id: string
+          total_questions?: number
+          user_id: string
+        }
+        Update: {
+          correct_answers?: number
+          created_at?: string
+          id?: string
+          subject_id?: string
+          topic_id?: string
+          total_questions?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_sessions_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       questions: {
         Row: {
           correct_option: string
