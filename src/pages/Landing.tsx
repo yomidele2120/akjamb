@@ -74,7 +74,10 @@ const Landing = () => {
 
       {/* Footer */}
       <footer className="border-t border-border py-6 text-center text-sm text-muted-foreground">
-        © {new Date().getFullYear()} JAMB Prep. All rights reserved.
+        <p>© {new Date().getFullYear()} JAMB Prep. All rights reserved.</p>
+        <Link to="/admin/login" className="mt-2 inline-block text-xs text-muted-foreground/60 hover:text-muted-foreground underline-offset-4 hover:underline">
+          Admin Access
+        </Link>
       </footer>
     </div>
   );
