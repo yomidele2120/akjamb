@@ -130,29 +130,37 @@ Return a JSON object with this exact structure:
     }
 
     // Retry logic for transient Gemini errors
-    let geminiResp: Response | null = null;
+    let geminiData: Record<string, unknown> | null = null;
+    let lastError = "";
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
+    const geminiBodyStr = JSON.stringify(geminiBody);
+
     for (let attempt = 0; attempt < 3; attempt++) {
-      geminiResp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(geminiBody),
-        }
-      );
-      if (geminiResp.ok || (geminiResp.status !== 503 && geminiResp.status !== 429)) break;
-      console.log(`Gemini returned ${geminiResp.status}, retrying (${attempt + 1}/3)...`);
-      await geminiResp.text(); // consume body
+      const resp = await fetch(geminiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: geminiBodyStr,
+      });
+
+      if (resp.ok) {
+        geminiData = await resp.json();
+        break;
+      }
+
+      lastError = await resp.text();
+      if (resp.status !== 503 && resp.status !== 429) {
+        console.error("Gemini error:", lastError);
+        throw new Error("AI processing failed");
+      }
+
+      console.log(`Gemini returned ${resp.status}, retrying (${attempt + 1}/3)...`);
       await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
     }
 
-    if (!geminiResp!.ok) {
-      const errText = await geminiResp!.text();
-      console.error("Gemini error:", errText);
+    if (!geminiData) {
+      console.error("Gemini failed after retries:", lastError);
       throw new Error("AI processing failed");
     }
-
-    const geminiData = await geminiResp!.json();
     const rawText =
       geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
