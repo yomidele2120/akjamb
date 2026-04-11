@@ -87,14 +87,19 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="border-dashed col-span-2 lg:col-span-1">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground font-heading">CBT Exam Mode</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">Coming soon</p>
-            </CardContent>
-          </Card>
+          <Link to="/cbt/setup">
+            <Card className="border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors cursor-pointer col-span-2 lg:col-span-1">
+              <CardContent className="flex items-center gap-4 py-5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                  <GraduationCap className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold font-heading">Full CBT Exam</h3>
+                  <p className="text-xs text-muted-foreground">4 subjects · 160 questions · 2 hours</p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
       </main>
     </div>
