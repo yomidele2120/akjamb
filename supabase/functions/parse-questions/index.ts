@@ -129,22 +129,30 @@ Return a JSON object with this exact structure:
       };
     }
 
-    const geminiResp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(geminiBody),
-      }
-    );
+    // Retry logic for transient Gemini errors
+    let geminiResp: Response | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      geminiResp = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(geminiBody),
+        }
+      );
+      if (geminiResp.ok || (geminiResp.status !== 503 && geminiResp.status !== 429)) break;
+      console.log(`Gemini returned ${geminiResp.status}, retrying (${attempt + 1}/3)...`);
+      await geminiResp.text(); // consume body
+      await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
+    }
 
-    if (!geminiResp.ok) {
-      const errText = await geminiResp.text();
+    if (!geminiResp!.ok) {
+      const errText = await geminiResp!.text();
       console.error("Gemini error:", errText);
       throw new Error("AI processing failed");
     }
 
-    const geminiData = await geminiResp.json();
+    const geminiData = await geminiResp!.json();
     const rawText =
       geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
@@ -160,7 +168,9 @@ Return a JSON object with this exact structure:
     }> };
 
     try {
-      parsed = JSON.parse(rawText);
+      // Strip markdown fences if present
+      let cleaned = rawText.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+      parsed = JSON.parse(cleaned);
     } catch {
       console.error("Failed to parse AI response:", rawText);
       throw new Error("AI returned invalid format");
@@ -191,6 +201,13 @@ Return a JSON object with this exact structure:
       }
     }
 
+    // Normalize correct_option to single letter A-D
+    const normalizeOption = (opt: string): string | null => {
+      const letter = opt.trim().toUpperCase().replace(/[^A-D]/g, "");
+      if (letter.length === 1 && "ABCD".includes(letter)) return letter;
+      return null;
+    };
+
     // Insert questions
     const rows = parsed.questions
       .filter((q) => topicMap.has(q.topic_name.toLowerCase()))
@@ -202,9 +219,12 @@ Return a JSON object with this exact structure:
         option_b: q.option_b,
         option_c: q.option_c,
         option_d: q.option_d,
-        correct_option: q.correct_option.toUpperCase(),
+        correct_option: normalizeOption(q.correct_option) ?? "A",
         explanation: q.explanation || null,
-      }));
+      }))
+      .filter((r) => r.question_text && r.option_a);
+
+    if (!rows.length) throw new Error("No valid questions after processing");
 
     const { error: insertErr } = await adminClient
       .from("questions")
