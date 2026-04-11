@@ -38,6 +38,138 @@ export type Database = {
         }
         Relationships: []
       }
+      cbt_answers: {
+        Row: {
+          created_at: string
+          id: string
+          question_id: string
+          question_index: number
+          selected_option: string | null
+          session_id: string
+          subject_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          question_id: string
+          question_index: number
+          selected_option?: string | null
+          session_id: string
+          subject_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          question_id?: string
+          question_index?: number
+          selected_option?: string | null
+          session_id?: string
+          subject_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cbt_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cbt_answers_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "cbt_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cbt_answers_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cbt_results: {
+        Row: {
+          correct_answers: number
+          created_at: string
+          id: string
+          session_id: string
+          subject_scores: Json
+          total_questions: number
+          total_score: number
+          user_id: string
+        }
+        Insert: {
+          correct_answers?: number
+          created_at?: string
+          id?: string
+          session_id: string
+          subject_scores?: Json
+          total_questions?: number
+          total_score?: number
+          user_id: string
+        }
+        Update: {
+          correct_answers?: number
+          created_at?: string
+          id?: string
+          session_id?: string
+          subject_scores?: Json
+          total_questions?: number
+          total_score?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cbt_results_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "cbt_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cbt_sessions: {
+        Row: {
+          created_at: string
+          duration_minutes: number
+          end_time: string | null
+          id: string
+          start_time: string
+          status: string
+          subject_ids: Json
+          total_questions: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration_minutes?: number
+          end_time?: string | null
+          id?: string
+          start_time?: string
+          status?: string
+          subject_ids: Json
+          total_questions?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          duration_minutes?: number
+          end_time?: string | null
+          id?: string
+          start_time?: string
+          status?: string
+          subject_ids?: Json
+          total_questions?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       practice_answers: {
         Row: {
           correct_option: string

@@ -12,6 +12,9 @@ import AdminLogin from "./pages/AdminLogin";
 import AccountSetup from "./pages/AccountSetup";
 import Dashboard from "./pages/Dashboard";
 import Practice from "./pages/Practice";
+import CbtSetup from "./pages/CbtSetup";
+import CbtExam from "./pages/CbtExam";
+import CbtResult from "./pages/CbtResult";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AllowedStudents from "./pages/admin/AllowedStudents";
 import Subjects from "./pages/admin/Subjects";
@@ -35,6 +38,9 @@ const App = () => (
             <Route path="/setup" element={<AccountSetup />} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/practice" element={<ProtectedRoute><Practice /></ProtectedRoute>} />
+            <Route path="/cbt/setup" element={<ProtectedRoute><CbtSetup /></ProtectedRoute>} />
+            <Route path="/cbt/exam/:sessionId" element={<ProtectedRoute><CbtExam /></ProtectedRoute>} />
+            <Route path="/cbt/result/:sessionId" element={<ProtectedRoute><CbtResult /></ProtectedRoute>} />
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
             <Route path="/admin/students" element={<AdminRoute><AllowedStudents /></AdminRoute>} />
             <Route path="/admin/subjects" element={<AdminRoute><Subjects /></AdminRoute>} />
