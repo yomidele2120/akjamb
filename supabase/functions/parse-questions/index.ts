@@ -17,8 +17,6 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const geminiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!geminiKey) throw new Error("GEMINI_API_KEY not configured");
 
     // Verify admin
     const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
@@ -55,7 +53,7 @@ serve(async (req) => {
 
     const topicList = (existingTopics ?? []).map((t) => t.name).join(", ");
 
-    // Build content for Gemini
+    // Build prompt
     const prompt = `You are a JAMB CBT question parser. Extract ALL questions from this document for the subject "${subject.name}".
 
 Existing topics for this subject: ${topicList || "None yet - create appropriate topic names"}
@@ -89,81 +87,125 @@ Return a JSON object with this exact structure:
   ]
 }`;
 
-    let geminiBody: Record<string, unknown>;
-
+    // Prepare content for AI
+    let textContent = "";
     if (file_type === "pdf") {
-      geminiBody = {
-        contents: [
-          {
-            parts: [
-              {
-                inline_data: {
-                  mime_type: "application/pdf",
-                  data: file_base64,
-                },
-              },
-              { text: prompt },
-            ],
-          },
-        ],
-        generationConfig: {
-          responseMimeType: "application/json",
-          temperature: 0.1,
-        },
-      };
+      // For PDF, we'll send as base64 inline data
+      // Using Lovable AI Gateway
     } else {
-      // CSV or text - decode and send as text
-      const textContent = atob(file_base64);
-      geminiBody = {
-        contents: [
-          {
-            parts: [
-              { text: `Document content:\n\n${textContent}\n\n${prompt}` },
-            ],
-          },
-        ],
-        generationConfig: {
-          responseMimeType: "application/json",
-          temperature: 0.1,
-        },
-      };
+      textContent = atob(file_base64);
     }
 
-    // Retry logic for transient Gemini errors
-    let geminiData: Record<string, unknown> | null = null;
-    let lastError = "";
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
-    const geminiBodyStr = JSON.stringify(geminiBody);
+    // Use Lovable AI Gateway (supports multiple models, no external API key needed)
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    const geminiKey = Deno.env.get("GEMINI_API_KEY");
 
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const resp = await fetch(geminiUrl, {
+    let aiResult: string;
+
+    if (lovableApiKey) {
+      // Try Lovable AI Gateway first
+      console.log("Using Lovable AI Gateway...");
+      
+      const messages = file_type === "pdf" 
+        ? [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "image_url",
+                  image_url: { url: `data:application/pdf;base64,${file_base64}` }
+                },
+                { type: "text", text: prompt }
+              ]
+            }
+          ]
+        : [
+            {
+              role: "user", 
+              content: `Document content:\n\n${textContent}\n\n${prompt}`
+            }
+          ];
+
+      const aiResp = await fetch("https://ai.lovable.dev/api/v1/chat/completions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: geminiBodyStr,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${lovableApiKey}`,
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages,
+          response_format: { type: "json_object" },
+          temperature: 0.1,
+        }),
       });
 
-      if (resp.ok) {
-        geminiData = await resp.json();
-        break;
+      if (!aiResp.ok) {
+        const errText = await aiResp.text();
+        console.error("Lovable AI error:", errText);
+        throw new Error("AI processing failed via gateway");
       }
 
-      lastError = await resp.text();
-      if (resp.status !== 503 && resp.status !== 429) {
-        console.error("Gemini error:", lastError);
+      const aiData = await aiResp.json();
+      aiResult = aiData.choices?.[0]?.message?.content ?? "";
+    } else if (geminiKey) {
+      // Fallback to direct Gemini API
+      console.log("Using direct Gemini API...");
+      
+      let geminiBody: Record<string, unknown>;
+      if (file_type === "pdf") {
+        geminiBody = {
+          contents: [{
+            parts: [
+              { inline_data: { mime_type: "application/pdf", data: file_base64 } },
+              { text: prompt },
+            ],
+          }],
+          generationConfig: { responseMimeType: "application/json", temperature: 0.1 },
+        };
+      } else {
+        geminiBody = {
+          contents: [{
+            parts: [{ text: `Document content:\n\n${textContent}\n\n${prompt}` }],
+          }],
+          generationConfig: { responseMimeType: "application/json", temperature: 0.1 },
+        };
+      }
+
+      let geminiData: Record<string, unknown> | null = null;
+      let lastError = "";
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
+      const bodyStr = JSON.stringify(geminiBody);
+
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const resp = await fetch(geminiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: bodyStr,
+        });
+        if (resp.ok) {
+          geminiData = await resp.json();
+          break;
+        }
+        lastError = await resp.text();
+        if (resp.status !== 503 && resp.status !== 429) {
+          console.error("Gemini error:", lastError);
+          throw new Error("AI processing failed");
+        }
+        console.log(`Gemini returned ${resp.status}, retrying (${attempt + 1}/3)...`);
+        await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
+      }
+
+      if (!geminiData) {
+        console.error("Gemini failed after retries:", lastError);
         throw new Error("AI processing failed");
       }
-
-      console.log(`Gemini returned ${resp.status}, retrying (${attempt + 1}/3)...`);
-      await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
+      aiResult = (geminiData as any).candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    } else {
+      throw new Error("No AI API key configured");
     }
 
-    if (!geminiData) {
-      console.error("Gemini failed after retries:", lastError);
-      throw new Error("AI processing failed");
-    }
-    const rawText =
-      geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-
+    // Parse AI response
     let parsed: { questions: Array<{
       question_text: string;
       option_a: string;
@@ -176,11 +218,16 @@ Return a JSON object with this exact structure:
     }> };
 
     try {
-      // Strip markdown fences if present
-      let cleaned = rawText.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+      let cleaned = aiResult.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+      if (!cleaned.startsWith("{") && !cleaned.startsWith("[")) {
+        const objStart = cleaned.indexOf("{");
+        if (objStart !== -1) {
+          cleaned = cleaned.slice(objStart, cleaned.lastIndexOf("}") + 1);
+        }
+      }
       parsed = JSON.parse(cleaned);
     } catch {
-      console.error("Failed to parse AI response:", rawText);
+      console.error("Failed to parse AI response:", aiResult.slice(0, 500));
       throw new Error("AI returned invalid format");
     }
 
@@ -209,7 +256,7 @@ Return a JSON object with this exact structure:
       }
     }
 
-    // Normalize correct_option to single letter A-D
+    // Normalize correct_option
     const normalizeOption = (opt: string): string | null => {
       const letter = opt.trim().toUpperCase().replace(/[^A-D]/g, "");
       if (letter.length === 1 && "ABCD".includes(letter)) return letter;
