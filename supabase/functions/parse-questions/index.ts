@@ -126,14 +126,14 @@ Return a JSON object with this exact structure:
             }
           ];
 
-      const aiResp = await fetch("https://ai.lovable.dev/api/v1/chat/completions", {
+      const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${lovableApiKey}`,
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: "google/gemini-3-flash-preview",
           messages,
           response_format: { type: "json_object" },
           temperature: 0.1,
@@ -142,8 +142,17 @@ Return a JSON object with this exact structure:
 
       if (!aiResp.ok) {
         const errText = await aiResp.text();
-        console.error("Lovable AI error:", errText);
-        throw new Error("AI processing failed via gateway");
+        console.error("Lovable AI error:", aiResp.status, errText);
+
+        if (aiResp.status === 429) {
+          throw new Error("Lovable AI rate limit reached. Please try again in a moment.");
+        }
+
+        if (aiResp.status === 402) {
+          throw new Error("Lovable AI credits are required before processing more uploads.");
+        }
+
+        throw new Error("AI processing failed via Lovable AI");
       }
 
       const aiData = await aiResp.json();
