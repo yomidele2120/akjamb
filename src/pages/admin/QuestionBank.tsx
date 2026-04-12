@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Trash2, Upload, FileText, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Upload, FileText, Loader2, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -31,9 +31,13 @@ const QuestionBank = () => {
   const [filterTopic, setFilterTopic] = useState('all');
   const [open, setOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [generateOpen, setGenerateOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [bulkSubject, setBulkSubject] = useState('');
+  const [genSubject, setGenSubject] = useState('');
+  const [genTopic, setGenTopic] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -61,6 +65,7 @@ const QuestionBank = () => {
 
   const filteredTopics = topics.filter(t => form.subject_id ? t.subject_id === form.subject_id : true);
   const filterTopicsList = topics.filter(t => filterSubject !== 'all' ? t.subject_id === filterSubject : true);
+  const genTopicsList = topics.filter(t => genSubject ? t.subject_id === genSubject : true);
 
   const filtered = questions.filter(q => {
     if (filterSubject !== 'all' && q.subject_id !== filterSubject) return false;
@@ -95,41 +100,26 @@ const QuestionBank = () => {
       toast({ title: 'Error', description: 'Please select a subject and file', variant: 'destructive' });
       return;
     }
-
-    const allowedTypes = ['application/pdf', 'text/csv', 'text/plain'];
     const ext = selectedFile.name.split('.').pop()?.toLowerCase();
-    if (!allowedTypes.includes(selectedFile.type) && ext !== 'csv' && ext !== 'pdf') {
-      toast({ title: 'Error', description: 'Only PDF and CSV files are supported', variant: 'destructive' });
-      return;
-    }
-
     if (selectedFile.size > 20 * 1024 * 1024) {
       toast({ title: 'Error', description: 'File must be under 20MB', variant: 'destructive' });
       return;
     }
-
     setUploading(true);
     try {
       const buffer = await selectedFile.arrayBuffer();
       const bytes = new Uint8Array(buffer);
       let binary = '';
-      for (let i = 0; i < bytes.length; i++) {
-        binary += String.fromCharCode(bytes[i]);
-      }
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
       const file_base64 = btoa(binary);
       const file_type = ext === 'pdf' ? 'pdf' : 'csv';
 
       const { data, error } = await supabase.functions.invoke('parse-questions', {
         body: { file_base64, file_type, subject_id: bulkSubject },
       });
-
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-
-      toast({
-        title: 'Upload Successful!',
-        description: `${data.count} questions added${data.topics_created > 0 ? `, ${data.topics_created} new topics created` : ''}`,
-      });
+      toast({ title: 'Upload Successful!', description: `${data.count} questions added` });
       setBulkOpen(false);
       setSelectedFile(null);
       setBulkSubject('');
@@ -138,6 +128,34 @@ const QuestionBank = () => {
       toast({ title: 'Upload Failed', description: e.message || 'Something went wrong', variant: 'destructive' });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleAIGenerate = async () => {
+    if (!genSubject || !genTopic) {
+      toast({ title: 'Error', description: 'Please select a subject and topic', variant: 'destructive' });
+      return;
+    }
+    const subject = subjects.find(s => s.id === genSubject);
+    const topic = topics.find(t => t.id === genTopic);
+    if (!subject || !topic) return;
+
+    setGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-questions', {
+        body: { subject_id: genSubject, topic_id: genTopic, subject_name: subject.name, topic_name: topic.name, count: 50 },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: 'Questions Generated!', description: `${data.count} questions created for ${topic.name}` });
+      setGenerateOpen(false);
+      setGenSubject('');
+      setGenTopic('');
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: 'Generation Failed', description: e.message, variant: 'destructive' });
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -151,7 +169,51 @@ const QuestionBank = () => {
           <h1 className="font-heading text-2xl font-bold">Question Bank</h1>
           <p className="text-sm text-muted-foreground">{filtered.length} question{filtered.length !== 1 ? 's' : ''}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          {/* AI Generate Dialog */}
+          <Dialog open={generateOpen} onOpenChange={setGenerateOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="outline" className="gap-1">
+                <Sparkles className="h-4 w-4" />AI Generate
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Generate Questions with AI</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                AI will generate 50 JAMB-standard questions with mixed difficulty and explanations.
+              </p>
+              <div className="space-y-4 pt-2">
+                <div className="space-y-2">
+                  <Label>Subject</Label>
+                  <Select value={genSubject} onValueChange={v => { setGenSubject(v); setGenTopic(''); }}>
+                    <SelectTrigger><SelectValue placeholder="Select subject" /></SelectTrigger>
+                    <SelectContent>
+                      {subjects.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Topic</Label>
+                  <Select value={genTopic} onValueChange={setGenTopic} disabled={!genSubject}>
+                    <SelectTrigger><SelectValue placeholder="Select topic" /></SelectTrigger>
+                    <SelectContent>
+                      {genTopicsList.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={handleAIGenerate} disabled={generating || !genSubject || !genTopic} className="w-full">
+                  {generating ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating…</>
+                  ) : (
+                    <><Sparkles className="mr-2 h-4 w-4" />Generate 50 Questions</>
+                  )}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
           {/* Bulk Upload Dialog */}
           <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
             <DialogTrigger asChild>
@@ -164,7 +226,7 @@ const QuestionBank = () => {
                 <DialogTitle>Bulk Upload Questions</DialogTitle>
               </DialogHeader>
               <p className="text-sm text-muted-foreground">
-                Upload a PDF or CSV file with questions. AI will automatically extract questions, detect topics, and organize everything.
+                Upload a PDF or CSV file with questions.
               </p>
               <div className="space-y-4 pt-2">
                 <div className="space-y-2">
@@ -178,40 +240,15 @@ const QuestionBank = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>File (PDF or CSV)</Label>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".pdf,.csv"
-                    className="hidden"
-                    onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
-                  />
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start gap-2"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
+                  <input ref={fileInputRef} type="file" accept=".pdf,.csv" className="hidden"
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)} />
+                  <Button variant="outline" className="w-full justify-start gap-2" onClick={() => fileInputRef.current?.click()}>
                     <FileText className="h-4 w-4" />
                     {selectedFile ? selectedFile.name : 'Choose file...'}
                   </Button>
-                  {selectedFile && (
-                    <p className="text-xs text-muted-foreground">
-                      {(selectedFile.size / 1024).toFixed(1)} KB • {selectedFile.name.split('.').pop()?.toUpperCase()}
-                    </p>
-                  )}
                 </div>
-                <Button
-                  onClick={handleBulkUpload}
-                  disabled={uploading || !bulkSubject || !selectedFile}
-                  className="w-full"
-                >
-                  {uploading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      AI is processing...
-                    </>
-                  ) : (
-                    'Upload & Process'
-                  )}
+                <Button onClick={handleBulkUpload} disabled={uploading || !bulkSubject || !selectedFile} className="w-full">
+                  {uploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</> : 'Upload & Process'}
                 </Button>
               </div>
             </DialogContent>

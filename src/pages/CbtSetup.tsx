@@ -3,6 +3,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
 import { BookOpen, LogOut, Clock, CheckSquare, AlertTriangle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -11,8 +13,14 @@ import { useToast } from '@/hooks/use-toast';
 type Subject = { id: string; name: string; questionCount: number };
 
 const ENGLISH_NAME = 'english language';
-const QUESTIONS_PER_SUBJECT = 40;
 const TOTAL_SUBJECTS = 4;
+
+const TIME_PRESETS = [
+  { minutes: 30, questionsPerSubject: 10 },
+  { minutes: 60, questionsPerSubject: 20 },
+  { minutes: 90, questionsPerSubject: 30 },
+  { minutes: 120, questionsPerSubject: 40 },
+];
 
 const CbtSetup = () => {
   const { user, signOut } = useAuth();
@@ -24,11 +32,15 @@ const CbtSetup = () => {
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [activeSession, setActiveSession] = useState<string | null>(null);
+  const [durationMinutes, setDurationMinutes] = useState(120);
+
+  const currentPreset = TIME_PRESETS.find(p => p.minutes === durationMinutes) || TIME_PRESETS[3];
+  const questionsPerSubject = currentPreset.questionsPerSubject;
+  const totalQuestions = questionsPerSubject * TOTAL_SUBJECTS;
 
   useEffect(() => {
     if (!user) return;
     const load = async () => {
-      // Check for active session
       const { data: active } = await supabase
         .from('cbt_sessions')
         .select('id')
@@ -40,7 +52,6 @@ const CbtSetup = () => {
         setActiveSession(active[0].id);
       }
 
-      // Load subjects with question counts
       const { data: subs } = await supabase.from('subjects').select('id, name').order('name');
       if (!subs) { setLoading(false); return; }
 
@@ -64,13 +75,12 @@ const CbtSetup = () => {
   }, [user]);
 
   const toggleSubject = (id: string) => {
-    if (id === englishId) return; // English is mandatory
+    if (id === englishId) return;
     setSelectedIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
       } else {
-        // Max 3 non-English subjects
         const nonEnglish = [...next].filter(x => x !== englishId);
         if (nonEnglish.length >= 3) return prev;
         next.add(id);
@@ -82,7 +92,7 @@ const CbtSetup = () => {
   const canStart = selectedIds.size === TOTAL_SUBJECTS &&
     [...selectedIds].every(id => {
       const s = subjects.find(x => x.id === id);
-      return s && s.questionCount >= QUESTIONS_PER_SUBJECT;
+      return s && s.questionCount >= questionsPerSubject;
     });
 
   const startExam = async () => {
@@ -90,7 +100,6 @@ const CbtSetup = () => {
     setStarting(true);
 
     try {
-      // Create session
       const subjectIdsArray = [...selectedIds];
       const { data: session, error: sessionErr } = await supabase
         .from('cbt_sessions')
@@ -98,15 +107,14 @@ const CbtSetup = () => {
           user_id: user.id,
           subject_ids: subjectIdsArray,
           status: 'in_progress',
-          duration_minutes: 120,
-          total_questions: TOTAL_SUBJECTS * QUESTIONS_PER_SUBJECT,
+          duration_minutes: durationMinutes,
+          total_questions: totalQuestions,
         })
         .select('id')
         .single();
 
       if (sessionErr || !session) throw new Error(sessionErr?.message || 'Failed to create session');
 
-      // Load random questions per subject and create answer slots
       let questionIndex = 0;
       const answerRows: Array<{
         session_id: string;
@@ -122,13 +130,12 @@ const CbtSetup = () => {
           .select('id')
           .eq('subject_id', subId);
 
-        if (!qs || qs.length < QUESTIONS_PER_SUBJECT) {
+        if (!qs || qs.length < questionsPerSubject) {
           throw new Error('Not enough questions for selected subjects');
         }
 
-        // Shuffle and pick 40
         const shuffled = [...qs].sort(() => Math.random() - 0.5);
-        const picked = shuffled.slice(0, QUESTIONS_PER_SUBJECT);
+        const picked = shuffled.slice(0, questionsPerSubject);
 
         for (const q of picked) {
           answerRows.push({
@@ -141,7 +148,6 @@ const CbtSetup = () => {
         }
       }
 
-      // Insert all answer slots
       const { error: ansErr } = await supabase.from('cbt_answers').insert(answerRows);
       if (ansErr) throw new Error('Failed to setup exam questions');
 
@@ -150,6 +156,13 @@ const CbtSetup = () => {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
       setStarting(false);
     }
+  };
+
+  const formatDuration = (min: number) => {
+    if (min < 60) return `${min} minutes`;
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h} hour${h > 1 ? 's' : ''}`;
   };
 
   return (
@@ -167,7 +180,6 @@ const CbtSetup = () => {
       </header>
 
       <main className="container mx-auto px-4 py-6 md:py-8 max-w-2xl">
-        {/* Resume active session */}
         {activeSession && (
           <Card className="mb-6 border-yellow-500/30 bg-yellow-500/5">
             <CardContent className="flex items-center gap-4 py-5">
@@ -187,19 +199,48 @@ const CbtSetup = () => {
           <div>
             <h1 className="text-2xl font-bold font-heading text-foreground">Start CBT Exam</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Simulate a full JAMB CBT exam — {TOTAL_SUBJECTS} subjects, {TOTAL_SUBJECTS * QUESTIONS_PER_SUBJECT} questions, 2 hours
+              Simulate a real JAMB CBT exam
             </p>
           </div>
 
-          {/* Exam info */}
-          <div className="flex gap-3 flex-wrap">
-            <div className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5 text-xs font-medium">
-              <Clock className="h-3.5 w-3.5" /> 2 Hours
-            </div>
-            <div className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5 text-xs font-medium">
-              <CheckSquare className="h-3.5 w-3.5" /> {TOTAL_SUBJECTS * QUESTIONS_PER_SUBJECT} Questions
-            </div>
-          </div>
+          {/* Duration config */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-heading">Exam Duration</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-4 gap-2">
+                {TIME_PRESETS.map(p => (
+                  <button
+                    key={p.minutes}
+                    type="button"
+                    onClick={() => setDurationMinutes(p.minutes)}
+                    className={cn(
+                      'rounded-lg border p-3 text-center transition-all',
+                      durationMinutes === p.minutes
+                        ? 'border-primary bg-primary/10 ring-1 ring-primary/20'
+                        : 'border-border hover:border-primary/30'
+                    )}
+                  >
+                    <div className="text-sm font-bold">{formatDuration(p.minutes)}</div>
+                    <div className="text-xs text-muted-foreground">{p.questionsPerSubject * TOTAL_SUBJECTS} Qs</div>
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex gap-3 flex-wrap">
+                <div className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5 text-xs font-medium">
+                  <Clock className="h-3.5 w-3.5" /> {formatDuration(durationMinutes)}
+                </div>
+                <div className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5 text-xs font-medium">
+                  <CheckSquare className="h-3.5 w-3.5" /> {totalQuestions} Questions
+                </div>
+                <div className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5 text-xs font-medium">
+                  {questionsPerSubject} per subject
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Subject selection */}
           <Card>
@@ -216,7 +257,7 @@ const CbtSetup = () => {
                 subjects.map(s => {
                   const isEnglish = s.id === englishId;
                   const isSelected = selectedIds.has(s.id);
-                  const hasEnough = s.questionCount >= QUESTIONS_PER_SUBJECT;
+                  const hasEnough = s.questionCount >= questionsPerSubject;
                   const disabled = !hasEnough || (
                     !isSelected && !isEnglish &&
                     [...selectedIds].filter(x => x !== englishId).length >= 3
@@ -257,7 +298,7 @@ const CbtSetup = () => {
                         'text-xs',
                         hasEnough ? 'text-muted-foreground' : 'text-red-500'
                       )}>
-                        {s.questionCount} questions {!hasEnough && `(need ${QUESTIONS_PER_SUBJECT})`}
+                        {s.questionCount} questions {!hasEnough && `(need ${questionsPerSubject})`}
                       </span>
                     </button>
                   );
@@ -272,7 +313,7 @@ const CbtSetup = () => {
             disabled={!canStart || starting}
             onClick={startExam}
           >
-            {starting ? 'Setting up exam…' : 'Start Exam'}
+            {starting ? 'Setting up exam…' : `Start Exam (${formatDuration(durationMinutes)})`}
           </Button>
         </div>
       </main>
