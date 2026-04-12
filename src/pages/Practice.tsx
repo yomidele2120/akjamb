@@ -6,9 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { BookOpen, LogOut, CheckCircle2, XCircle, ArrowRight, RotateCcw, Trophy } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { BookOpen, LogOut, CheckCircle2, XCircle, ArrowRight, RotateCcw, Trophy, Loader2, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 type Subject = { id: string; name: string };
 type Topic = { id: string; name: string; subject_id: string };
@@ -23,20 +25,30 @@ type Question = {
   explanation: string | null;
 };
 
+type ShuffledQuestion = Question & {
+  shuffledOptions: { key: string; text: string; originalKey: string }[];
+  correctShuffledKey: string;
+};
+
 type Phase = 'select' | 'practice' | 'summary';
+
+const ALL_TOPICS = '__all__';
 
 const Practice = () => {
   const { user, signOut } = useAuth();
+  const { toast } = useToast();
 
   // Selection state
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedTopic, setSelectedTopic] = useState('');
+  const [questionCount, setQuestionCount] = useState(20);
+  const [availableCount, setAvailableCount] = useState(0);
 
   // Practice state
   const [phase, setPhase] = useState<Phase>('select');
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questions, setQuestions] = useState<ShuffledQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -44,6 +56,7 @@ const Practice = () => {
   const [correctCount, setCorrectCount] = useState(0);
   const [totalAnswered, setTotalAnswered] = useState(0);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     supabase.from('subjects').select('id, name').order('name').then(({ data }) => {
@@ -52,12 +65,26 @@ const Practice = () => {
   }, []);
 
   useEffect(() => {
-    if (!selectedSubject) { setTopics([]); setSelectedTopic(''); return; }
+    if (!selectedSubject) { setTopics([]); setSelectedTopic(''); setAvailableCount(0); return; }
     supabase.from('topics').select('id, name, subject_id').eq('subject_id', selectedSubject).order('name').then(({ data }) => {
       if (data) setTopics(data);
       setSelectedTopic('');
     });
   }, [selectedSubject]);
+
+  // Count available questions when subject/topic changes
+  useEffect(() => {
+    if (!selectedSubject) { setAvailableCount(0); return; }
+    const fetchCount = async () => {
+      let query = supabase.from('questions').select('id', { count: 'exact', head: true }).eq('subject_id', selectedSubject);
+      if (selectedTopic && selectedTopic !== ALL_TOPICS) {
+        query = query.eq('topic_id', selectedTopic);
+      }
+      const { count } = await query;
+      setAvailableCount(count ?? 0);
+    };
+    fetchCount();
+  }, [selectedSubject, selectedTopic]);
 
   const shuffleArray = <T,>(arr: T[]): T[] => {
     const a = [...arr];
@@ -68,31 +95,86 @@ const Practice = () => {
     return a;
   };
 
+  const shuffleOptions = (q: Question): ShuffledQuestion => {
+    const origOptions = [
+      { key: 'A', text: q.option_a, originalKey: 'A' },
+      { key: 'B', text: q.option_b, originalKey: 'B' },
+      { key: 'C', text: q.option_c, originalKey: 'C' },
+      { key: 'D', text: q.option_d, originalKey: 'D' },
+    ];
+    const shuffled = shuffleArray(origOptions);
+    const keys = ['A', 'B', 'C', 'D'];
+    const mapped = shuffled.map((opt, i) => ({ ...opt, key: keys[i] }));
+    const correctShuffledKey = mapped.find(o => o.originalKey === q.correct_option)?.key || 'A';
+    return { ...q, shuffledOptions: mapped, correctShuffledKey };
+  };
+
+  const triggerAIGeneration = async (subjectId: string, topicId: string) => {
+    const subject = subjects.find(s => s.id === subjectId);
+    const topic = topics.find(t => t.id === topicId);
+    if (!subject || !topic) return false;
+
+    setGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-questions', {
+        body: { subject_id: subjectId, topic_id: topicId, subject_name: subject.name, topic_name: topic.name, count: 50 },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: 'Questions Generated', description: `${data.count} questions added for ${topic.name}` });
+      return true;
+    } catch (e: any) {
+      toast({ title: 'Generation Failed', description: e.message, variant: 'destructive' });
+      return false;
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const startPractice = async () => {
-    if (!selectedSubject || !selectedTopic || !user) return;
+    if (!selectedSubject || !user) return;
+    if (!selectedTopic) return;
     setLoadingQuestions(true);
 
-    const { data: qs } = await supabase
-      .from('questions')
-      .select('*')
-      .eq('subject_id', selectedSubject)
-      .eq('topic_id', selectedTopic);
+    let query = supabase.from('questions').select('*').eq('subject_id', selectedSubject);
+    if (selectedTopic !== ALL_TOPICS) {
+      query = query.eq('topic_id', selectedTopic);
+    }
+
+    let { data: qs } = await query;
+
+    // If no questions and specific topic selected, try AI generation
+    if ((!qs || qs.length === 0) && selectedTopic !== ALL_TOPICS) {
+      const generated = await triggerAIGeneration(selectedSubject, selectedTopic);
+      if (generated) {
+        let retryQuery = supabase.from('questions').select('*').eq('subject_id', selectedSubject);
+        if (selectedTopic !== ALL_TOPICS) retryQuery = retryQuery.eq('topic_id', selectedTopic);
+        const { data: retryQs } = await retryQuery;
+        qs = retryQs;
+      }
+    }
 
     if (!qs || qs.length === 0) {
+      toast({ title: 'No Questions', description: 'No questions available for this selection', variant: 'destructive' });
       setLoadingQuestions(false);
       return;
     }
 
-    const shuffled = shuffleArray(qs);
+    // Shuffle questions, pick the requested count
+    const shuffled = shuffleArray(qs).slice(0, Math.min(questionCount, qs.length));
+    const withShuffledOptions = shuffled.map(q => shuffleOptions(q));
 
-    // Create session
+    // Create session - use first topic or the selected one
+    const topicForSession = selectedTopic === ALL_TOPICS ? topics[0]?.id : selectedTopic;
+    if (!topicForSession) { setLoadingQuestions(false); return; }
+
     const { data: session } = await supabase
       .from('practice_sessions')
-      .insert({ user_id: user.id, subject_id: selectedSubject, topic_id: selectedTopic, total_questions: 0, correct_answers: 0 })
+      .insert({ user_id: user.id, subject_id: selectedSubject, topic_id: topicForSession, total_questions: 0, correct_answers: 0 })
       .select('id')
       .single();
 
-    setQuestions(shuffled);
+    setQuestions(withShuffledOptions);
     setCurrentIndex(0);
     setSelectedOption(null);
     setSubmitted(false);
@@ -104,32 +186,27 @@ const Practice = () => {
   };
 
   const currentQuestion = questions[currentIndex];
-  const options = currentQuestion ? [
-    { key: 'A', text: currentQuestion.option_a },
-    { key: 'B', text: currentQuestion.option_b },
-    { key: 'C', text: currentQuestion.option_c },
-    { key: 'D', text: currentQuestion.option_d },
-  ] : [];
 
   const handleSubmitAnswer = async () => {
     if (!selectedOption || !currentQuestion || !sessionId) return;
     setSubmitted(true);
-    const isCorrect = selectedOption === currentQuestion.correct_option;
+    const isCorrect = selectedOption === currentQuestion.correctShuffledKey;
     const newCorrect = correctCount + (isCorrect ? 1 : 0);
     const newTotal = totalAnswered + 1;
     setCorrectCount(newCorrect);
     setTotalAnswered(newTotal);
 
-    // Save answer
+    // Map back to original option for storage
+    const originalOption = currentQuestion.shuffledOptions.find(o => o.key === selectedOption)?.originalKey || selectedOption;
+
     await supabase.from('practice_answers').insert({
       session_id: sessionId,
       question_id: currentQuestion.id,
-      selected_option: selectedOption,
+      selected_option: originalOption,
       correct_option: currentQuestion.correct_option,
       is_correct: isCorrect,
     });
 
-    // Update session
     await supabase.from('practice_sessions').update({
       total_questions: newTotal,
       correct_answers: newCorrect,
@@ -157,10 +234,10 @@ const Practice = () => {
   };
 
   const scorePercent = totalAnswered > 0 ? Math.round((correctCount / totalAnswered) * 100) : 0;
+  const canStart = selectedSubject && selectedTopic && !loadingQuestions && !generating;
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border">
         <div className="container mx-auto flex items-center justify-between px-4 py-3">
           <Link to="/dashboard" className="flex items-center gap-2">
@@ -206,6 +283,7 @@ const Practice = () => {
                       <SelectValue placeholder={selectedSubject ? 'Select a topic' : 'Choose a subject first'} />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value={ALL_TOPICS}>📚 All Topics (Entire Subject)</SelectItem>
                       {topics.map(t => (
                         <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
                       ))}
@@ -213,13 +291,39 @@ const Practice = () => {
                   </Select>
                 </div>
 
+                {selectedSubject && selectedTopic && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Number of Questions</Label>
+                      <span className="text-sm font-medium text-primary">{questionCount}</span>
+                    </div>
+                    <Slider
+                      value={[questionCount]}
+                      onValueChange={([v]) => setQuestionCount(v)}
+                      min={5}
+                      max={Math.max(availableCount, 50)}
+                      step={5}
+                      className="w-full"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {availableCount} questions available{availableCount === 0 && selectedTopic !== ALL_TOPICS ? ' — AI will generate questions' : ''}
+                    </p>
+                  </div>
+                )}
+
                 <Button
                   className="w-full mt-2"
                   size="lg"
-                  disabled={!selectedSubject || !selectedTopic || loadingQuestions}
+                  disabled={!canStart}
                   onClick={startPractice}
                 >
-                  {loadingQuestions ? 'Loading…' : 'Start Practice'}
+                  {generating ? (
+                    <><Sparkles className="mr-2 h-4 w-4 animate-pulse" />Generating Questions…</>
+                  ) : loadingQuestions ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Loading…</>
+                  ) : (
+                    'Start Practice'
+                  )}
                 </Button>
               </CardContent>
             </Card>
@@ -229,7 +333,6 @@ const Practice = () => {
         {/* PRACTICE PHASE */}
         {phase === 'practice' && currentQuestion && (
           <div className="space-y-4">
-            {/* Progress */}
             <div className="space-y-1">
               <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <span>Question {currentIndex + 1} of {questions.length}</span>
@@ -238,7 +341,6 @@ const Practice = () => {
               <Progress value={((currentIndex + 1) / questions.length) * 100} className="h-2" />
             </div>
 
-            {/* Question */}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base md:text-lg font-heading leading-relaxed">
@@ -246,9 +348,9 @@ const Practice = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {options.map(opt => {
+                {currentQuestion.shuffledOptions.map(opt => {
                   const isSelected = selectedOption === opt.key;
-                  const isCorrect = opt.key === currentQuestion.correct_option;
+                  const isCorrect = opt.key === currentQuestion.correctShuffledKey;
 
                   let optionClass = 'border-border hover:border-primary/50 hover:bg-accent/50 cursor-pointer';
                   if (submitted) {
@@ -286,15 +388,14 @@ const Practice = () => {
               </CardContent>
             </Card>
 
-            {/* Feedback */}
             {submitted && (
               <Card className={cn(
                 'border-l-4',
-                selectedOption === currentQuestion.correct_option ? 'border-l-green-500' : 'border-l-red-500'
+                selectedOption === currentQuestion.correctShuffledKey ? 'border-l-green-500' : 'border-l-red-500'
               )}>
                 <CardContent className="pt-4 pb-4">
                   <div className="flex items-center gap-2 mb-2">
-                    {selectedOption === currentQuestion.correct_option ? (
+                    {selectedOption === currentQuestion.correctShuffledKey ? (
                       <>
                         <CheckCircle2 className="h-5 w-5 text-green-500" />
                         <span className="font-semibold text-green-700 dark:text-green-400">Correct!</span>
@@ -303,7 +404,7 @@ const Practice = () => {
                       <>
                         <XCircle className="h-5 w-5 text-red-500" />
                         <span className="font-semibold text-red-700 dark:text-red-400">
-                          Incorrect — Answer is {currentQuestion.correct_option}
+                          Incorrect — Answer is {currentQuestion.correctShuffledKey}
                         </span>
                       </>
                     )}
@@ -315,7 +416,6 @@ const Practice = () => {
               </Card>
             )}
 
-            {/* Actions */}
             <div className="flex gap-3">
               {!submitted ? (
                 <Button className="flex-1" size="lg" disabled={!selectedOption} onClick={handleSubmitAnswer}>
