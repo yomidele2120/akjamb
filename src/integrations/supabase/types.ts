@@ -272,6 +272,7 @@ export type Database = {
           option_c: string
           option_d: string
           question_text: string
+          source_url: string | null
           subject_id: string
           topic_id: string
           type: string
@@ -288,6 +289,7 @@ export type Database = {
           option_c: string
           option_d: string
           question_text: string
+          source_url?: string | null
           subject_id: string
           topic_id: string
           type?: string
@@ -304,6 +306,7 @@ export type Database = {
           option_c?: string
           option_d?: string
           question_text?: string
+          source_url?: string | null
           subject_id?: string
           topic_id?: string
           type?: string
