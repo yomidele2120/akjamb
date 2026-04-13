@@ -20,6 +20,7 @@ import AllowedStudents from "./pages/admin/AllowedStudents";
 import Subjects from "./pages/admin/Subjects";
 import Topics from "./pages/admin/Topics";
 import QuestionBank from "./pages/admin/QuestionBank";
+import AutoGenerateQuestions from "./pages/admin/AutoGenerateQuestions";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,6 +47,7 @@ const App = () => (
             <Route path="/admin/subjects" element={<AdminRoute><Subjects /></AdminRoute>} />
             <Route path="/admin/topics" element={<AdminRoute><Topics /></AdminRoute>} />
             <Route path="/admin/questions" element={<AdminRoute><QuestionBank /></AdminRoute>} />
+            <Route path="/admin/auto-generate" element={<AdminRoute><AutoGenerateQuestions /></AdminRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
