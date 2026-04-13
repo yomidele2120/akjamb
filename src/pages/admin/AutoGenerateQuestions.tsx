@@ -135,9 +135,34 @@ const AutoGenerateQuestions = () => {
     }
     setSaving(true);
     try {
+      // For questions without a topic_id, create or find a "General" topic for the subject
+      const needsDefaultTopic = toSave.some(q => !q.topic_id);
+      let defaultTopicId: string | null = null;
+
+      if (needsDefaultTopic && selectedSubject) {
+        const { data: existing } = await supabase
+          .from('topics')
+          .select('id')
+          .eq('subject_id', selectedSubject)
+          .eq('name', 'General')
+          .maybeSingle();
+
+        if (existing) {
+          defaultTopicId = existing.id;
+        } else {
+          const { data: created, error: createErr } = await supabase
+            .from('topics')
+            .insert({ name: 'General', subject_id: selectedSubject })
+            .select('id')
+            .single();
+          if (createErr) throw createErr;
+          defaultTopicId = created.id;
+        }
+      }
+
       const rows = toSave.map(q => ({
         subject_id: q.subject_id,
-        topic_id: q.topic_id,
+        topic_id: q.topic_id || defaultTopicId!,
         question_text: q.question_text,
         option_a: q.option_a,
         option_b: q.option_b,

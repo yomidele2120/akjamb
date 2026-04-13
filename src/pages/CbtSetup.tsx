@@ -171,7 +171,7 @@ const CbtSetup = () => {
         <div className="container mx-auto flex items-center justify-between px-4 py-3">
           <Link to="/dashboard" className="flex items-center gap-2">
             <BookOpen className="h-6 w-6 text-primary" />
-            <span className="text-lg font-bold text-foreground font-heading">JAMB Prep</span>
+            <span className="text-lg font-bold text-foreground font-heading">MEEKAH</span>
           </Link>
           <Button variant="ghost" size="sm" onClick={signOut} className="gap-2">
             <LogOut className="h-4 w-4" /> <span className="hidden sm:inline">Sign Out</span>

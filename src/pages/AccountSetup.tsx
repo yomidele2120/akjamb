@@ -105,7 +105,7 @@ const AccountSetup = () => {
           <Link to="/" className="flex items-center gap-2">
             <BookOpen className="h-6 w-6 text-primary" />
             <span className="text-lg font-bold text-foreground" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
-              JAMB Prep
+              MEEKAH
             </span>
           </Link>
         </div>
