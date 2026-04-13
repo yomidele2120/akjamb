@@ -65,6 +65,11 @@ serve(async (req) => {
           allUrls.push(...urls);
         } else {
           console.error("Serper error:", searchRes.status, JSON.stringify(searchData));
+          if (searchData.message?.includes("Not enough credits")) {
+            return new Response(JSON.stringify({ error: "Serper API credits exhausted. Please top up your Serper account at serper.dev." }), {
+              status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
         }
       } catch (e) {
         console.error("Search query failed:", query, e);
