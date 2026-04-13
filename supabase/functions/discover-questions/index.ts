@@ -51,15 +51,25 @@ serve(async (req) => {
     const allUrls: string[] = [];
     for (const query of searchQueries) {
       try {
+        console.log("Searching:", query);
         const searchRes = await fetch("https://google.serper.dev/search", {
           method: "POST",
           headers: { "X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json" },
           body: JSON.stringify({ q: query, num: 10 }),
         });
+        const searchData = await searchRes.json();
+        console.log("Search status:", searchRes.status, "results:", JSON.stringify(searchData).slice(0, 500));
         if (searchRes.ok) {
-          const searchData = await searchRes.json();
           const urls = (searchData.organic || []).map((r: any) => r.link).filter(Boolean);
+          console.log("Found URLs:", urls.length);
           allUrls.push(...urls);
+        } else {
+          console.error("Serper error:", searchRes.status, JSON.stringify(searchData));
+          if (searchData.message?.includes("Not enough credits")) {
+            return new Response(JSON.stringify({ error: "Serper API credits exhausted. Please top up your Serper account at serper.dev." }), {
+              status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
         }
       } catch (e) {
         console.error("Search query failed:", query, e);
