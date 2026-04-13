@@ -10,7 +10,7 @@ const Landing = () => {
         <div className="container mx-auto flex items-center justify-between px-4 py-4">
           <div className="flex items-center gap-2">
             <BookOpen className="h-7 w-7 text-primary" />
-            <span className="font-heading text-xl font-bold text-foreground">JAMB Prep</span>
+            <span className="font-heading text-xl font-bold text-foreground">MEEKAH</span>
           </div>
           <Link to="/login">
             <Button size="sm">Sign In</Button>
@@ -26,7 +26,7 @@ const Landing = () => {
           </div>
           <h1 className="mb-4 max-w-2xl text-4xl font-bold tracking-tight text-foreground md:text-5xl lg:text-6xl"
               style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
-            Master Your JAMB Exams
+            Master Your JAMB Exams with MEEKAH Tutorials
           </h1>
           <p className="mb-8 max-w-lg text-lg text-muted-foreground">
             Computer-based test practice designed to build your confidence and improve your scores. Exclusive access for registered students.
@@ -74,7 +74,7 @@ const Landing = () => {
 
       {/* Footer */}
       <footer className="border-t border-border py-6 text-center text-sm text-muted-foreground">
-        <p>© {new Date().getFullYear()} JAMB Prep. All rights reserved.</p>
+        <p>© {new Date().getFullYear()} MEEKAH Tutorials. All rights reserved.</p>
         <Link to="/admin/login" className="mt-2 inline-block text-xs text-muted-foreground/60 hover:text-muted-foreground underline-offset-4 hover:underline">
           Admin Access
         </Link>
