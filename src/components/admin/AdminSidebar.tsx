@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, BookOpen, Layers, HelpCircle, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, BookOpen, Layers, HelpCircle, Search, LogOut } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,6 +22,7 @@ const navItems = [
   { title: 'Subjects', url: '/admin/subjects', icon: BookOpen },
   { title: 'Topics', url: '/admin/topics', icon: Layers },
   { title: 'Question Bank', url: '/admin/questions', icon: HelpCircle },
+  { title: 'Auto-Generate', url: '/admin/auto-generate', icon: Search },
 ];
 
 export function AdminSidebar() {
