@@ -21,6 +21,8 @@ import Subjects from "./pages/admin/Subjects";
 import Topics from "./pages/admin/Topics";
 import QuestionBank from "./pages/admin/QuestionBank";
 import AutoGenerateQuestions from "./pages/admin/AutoGenerateQuestions";
+import ManageVideos from "./pages/admin/ManageVideos";
+import ManagePosts from "./pages/admin/ManagePosts";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -122,6 +124,22 @@ const App = () => (
               element={
                 <AdminRoute>
                   <AutoGenerateQuestions />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/videos"
+              element={
+                <AdminRoute>
+                  <ManageVideos />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/posts"
+              element={
+                <AdminRoute>
+                  <ManagePosts />
                 </AdminRoute>
               }
             />

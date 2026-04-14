@@ -146,49 +146,65 @@ const Landing = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-6 py-20 md:py-32 min-h-[600px] flex flex-col justify-center">
-        <div className="max-w-3xl">
-          <div className="inline-flex items-center gap-2 mb-6 px-4 py-2 bg-[#111111] rounded-full border border-[#1A1A1A]">
-            <div className="w-2 h-2 bg-[#FFD700] rounded-full animate-pulse"></div>
-            <span className="text-xs font-medium text-[#B0B0B0]">Now Accepting Students for 2025 JAMB Preparation</span>
-          </div>
+      <section className="relative overflow-hidden py-16 md:py-24">
+        <div className="container mx-auto px-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-center min-h-[550px]">
+            {/* Left Content */}
+            <div className="flex flex-col justify-center order-2 md:order-1">
+              <div className="inline-flex items-center gap-2 mb-6 px-4 py-2 bg-[#111111] rounded-full border border-[#1A1A1A] w-fit">
+                <div className="w-2 h-2 bg-[#FFD700] rounded-full animate-pulse"></div>
+                <span className="text-xs font-medium text-[#B0B0B0]">JAMB 2025 Preparation</span>
+              </div>
 
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-heading font-bold mb-6 leading-tight">
-            Master JAMB CBT
-            <span className="text-[#FFD700] block mt-2">Before the Real Exam</span>
-          </h1>
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold mb-4 leading-tight">
+                Personalized
+                <span className="text-[#FFD700] block">Learning Path</span>
+              </h1>
 
-          <p className="text-xl text-[#B0B0B0] mb-8 max-w-2xl leading-relaxed">
-            Premium practice platform designed for serious students. Real exam format, expert questions, and proven results. Get the confidence you need to ace JAMB.
-          </p>
+              <p className="text-lg text-[#B0B0B0] mb-8 max-w-md leading-relaxed">
+                Master any subject with our adaptive learning system. Get personalized recommendations, track your progress, and ace JAMB with confidence.
+              </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 mb-12">
-            <Link to="/login">
-              <Button className="bg-[#FFD700] hover:bg-yellow-500 text-[#0B0B0B] font-bold text-lg px-8 py-3 h-auto animate-glow">
-                Get Started Now
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </Link>
-            <Link to="/login">
-              <Button variant="outline" className="border-[#1A1A1A] text-white hover:bg-[#111111] font-bold text-lg px-8 py-3 h-auto">
-                Explore Demo
-              </Button>
-            </Link>
-          </div>
+              <div className="flex flex-col sm:flex-row gap-4 mb-12">
+                <Link to="/login">
+                  <Button className="bg-[#FFD700] hover:bg-yellow-500 text-[#0B0B0B] font-bold text-base px-8 py-3 h-auto">
+                    Start Learning
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
+                <Link to="/login">
+                  <Button variant="outline" className="border-[#FFD700] text-[#FFD700] hover:bg-[#FFD700]/10 font-bold text-base px-8 py-3 h-auto">
+                    Explore Features
+                  </Button>
+                </Link>
+              </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-6 pt-8 border-t border-[#1A1A1A]">
-            <div>
-              <p className="text-3xl font-bold text-[#FFD700]">500+</p>
-              <p className="text-sm text-[#B0B0B0] mt-1">Practice Questions</p>
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-6 pt-8 border-t border-[#1A1A1A]">
+                <div>
+                  <p className="text-2xl md:text-3xl font-bold text-[#FFD700]">500+</p>
+                  <p className="text-xs md:text-sm text-[#B0B0B0] mt-1">Questions</p>
+                </div>
+                <div>
+                  <p className="text-2xl md:text-3xl font-bold text-[#FFD700]">12K+</p>
+                  <p className="text-xs md:text-sm text-[#B0B0B0] mt-1">Students</p>
+                </div>
+                <div>
+                  <p className="text-2xl md:text-3xl font-bold text-[#FFD700]">95%</p>
+                  <p className="text-xs md:text-sm text-[#B0B0B0] mt-1">Pass Rate</p>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-3xl font-bold text-[#FFD700]">12K+</p>
-              <p className="text-sm text-[#B0B0B0] mt-1">Active Students</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-[#FFD700]">95%</p>
-              <p className="text-sm text-[#B0B0B0] mt-1">Pass Rate</p>
+
+            {/* Right Image */}
+            <div className="relative h-[450px] md:h-[550px] order-1 md:order-2 rounded-2xl overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-tr from-[#FFD700]/20 via-transparent to-transparent z-10"></div>
+              <img
+                src="https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=600&h=700&fit=crop&q=80"
+                alt="Student learning with book and backpack"
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0B0B0B] via-transparent to-transparent opacity-40 z-5"></div>
             </div>
           </div>
         </div>

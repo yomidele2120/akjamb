@@ -1,6 +1,7 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "./AdminSidebar";
 import { BookOpen } from "lucide-react";
+import FloatingWhatsApp from "@/components/FloatingWhatsApp";
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -20,6 +21,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           <main className="flex-1 overflow-auto p-4 md:p-6">{children}</main>
         </div>
       </div>
+      <FloatingWhatsApp />
     </SidebarProvider>
   );
 }

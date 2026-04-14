@@ -6,6 +6,8 @@ import {
   HelpCircle,
   Search,
   LogOut,
+  Play,
+  FileText,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -31,6 +33,8 @@ const navItems = [
   { title: "Topics", url: "/admin/topics", icon: Layers },
   { title: "Question Bank", url: "/admin/questions", icon: HelpCircle },
   { title: "Auto-Generate", url: "/admin/auto-generate", icon: Search },
+  { title: "Videos", url: "/admin/videos", icon: Play },
+  { title: "Blog / Posts", url: "/admin/posts", icon: FileText },
 ];
 
 export function AdminSidebar() {

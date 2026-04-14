@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import FloatingWhatsApp from "@/components/FloatingWhatsApp";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -144,6 +145,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         {/* Content */}
         <main className="flex-1 overflow-auto">{children}</main>
       </div>
+
+      {/* Floating WhatsApp Button */}
+      <FloatingWhatsApp />
     </div>
   );
 };
