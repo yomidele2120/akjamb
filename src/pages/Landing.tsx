@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { BookOpen, Play, Zap, Award, TrendingUp, ArrowRight } from 'lucide-react';
+import { BookOpen, Play, Zap, Award, TrendingUp, ArrowRight, Twitter, Facebook, Instagram, Youtube } from 'lucide-react';
 import FloatingWhatsApp from '@/components/FloatingWhatsApp';
 import { getVideos, getPosts, Video, Post, getYoutubeThumbnail } from '@/lib/contentManagement';
 
@@ -373,15 +373,42 @@ const Landing = () => {
             <div>
               <h4 className="font-bold mb-4">Follow Us</h4>
               <div className="flex gap-4">
-                {['Twitter', 'Facebook', 'Instagram'].map((social) => (
-                  <a
-                    key={social}
-                    href="#"
-                    className="w-10 h-10 bg-[#111111] rounded-lg flex items-center justify-center text-[#B0B0B0] hover:bg-[#FFD700] hover:text-[#0B0B0B] smooth-transition font-bold text-xs"
-                  >
-                    {social[0]}
-                  </a>
-                ))}
+                <a
+                  href="https://twitter.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-10 h-10 bg-[#111111] rounded-lg flex items-center justify-center text-[#B0B0B0] hover:bg-[#FFD700] hover:text-[#0B0B0B] smooth-transition"
+                  title="Twitter"
+                >
+                  <Twitter className="h-5 w-5" />
+                </a>
+                <a
+                  href="https://facebook.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-10 h-10 bg-[#111111] rounded-lg flex items-center justify-center text-[#B0B0B0] hover:bg-[#FFD700] hover:text-[#0B0B0B] smooth-transition"
+                  title="Facebook"
+                >
+                  <Facebook className="h-5 w-5" />
+                </a>
+                <a
+                  href="https://instagram.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-10 h-10 bg-[#111111] rounded-lg flex items-center justify-center text-[#B0B0B0] hover:bg-[#FFD700] hover:text-[#0B0B0B] smooth-transition"
+                  title="Instagram"
+                >
+                  <Instagram className="h-5 w-5" />
+                </a>
+                <a
+                  href="https://youtube.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-10 h-10 bg-[#111111] rounded-lg flex items-center justify-center text-[#B0B0B0] hover:bg-[#FFD700] hover:text-[#0B0B0B] smooth-transition"
+                  title="YouTube"
+                >
+                  <Youtube className="h-5 w-5" />
+                </a>
               </div>
             </div>
           </div>

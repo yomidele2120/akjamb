@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   BookMarked,
   BarChart3,
+  TrendingUp,
   Trophy,
   User,
   LogOut,
@@ -29,6 +30,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { path: "/practice", label: "Practice", icon: BookMarked },
     { path: "/cbt/setup", label: "CBT Exam", icon: BarChart3 },
+    { path: "/analytics", label: "Analytics", icon: TrendingUp },
     { path: "/cbt/result/latest", label: "Results", icon: Trophy },
     { path: "/profile", label: "Profile", icon: User },
   ];

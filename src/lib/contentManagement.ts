@@ -283,3 +283,390 @@ export const deletePost = async (
     return { success: false, error: String(error) };
   }
 };
+
+// ============================================
+// ANALYTICS OPERATIONS
+// ============================================
+
+export interface UserStats {
+  id: string;
+  user_id: string;
+  total_tests_taken: number;
+  average_score: number;
+  best_score: number;
+  worst_score: number;
+  weakest_subject?: string;
+  strongest_subject?: string;
+  total_time_spent_seconds: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  user_id: string;
+  user_name: string;
+  score: number;
+  exam_type: string;
+}
+
+export interface PerformanceInsight {
+  id: string;
+  user_id: string;
+  insight_type: 'improvement' | 'weakness' | 'strength' | 'encouragement';
+  subject: string;
+  topic?: string;
+  message: string;
+  created_at: string;
+  is_read: boolean;
+}
+
+/**
+ * Get user stats
+ */
+export const getUserStats = async (userId: string): Promise<UserStats | null> => {
+  try {
+    const { data, error } = await supabase
+      .from("user_stats")
+      .select("*")
+      .eq("user_id", userId)
+      .single();
+
+    if (error && error.code === 'PGRST116') return null; // Not found
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error("Error fetching user stats:", error);
+    return null;
+  }
+};
+
+/**
+ * Get leaderboard (top students)
+ */
+export const getLeaderboard = async (
+  examType: 'cbt' | 'practice' = 'cbt',
+  limit: number = 10
+): Promise<LeaderboardEntry[]> => {
+  try {
+    const { data, error } = await supabase
+      .rpc('get_top_leaderboard', {
+        p_exam_type: examType,
+        p_limit: limit,
+      });
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error("Error fetching leaderboard:", error);
+    // Fallback to direct query if RPC fails
+    return await getLeaderboardFallback(examType, limit);
+  }
+};
+
+/**
+ * Fallback leaderboard query
+ */
+const getLeaderboardFallback = async (
+  examType: 'cbt' | 'practice',
+  limit: number
+): Promise<LeaderboardEntry[]> => {
+  try {
+    const { data, error } = await supabase
+      .from("leaderboard")
+      .select("user_id, score, exam_type, users!inner(full_name)")
+      .eq("exam_type", examType)
+      .order("score", { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    
+    return (data || []).map((item: any, index: number) => ({
+      rank: index + 1,
+      user_id: item.user_id,
+      user_name: item.users?.full_name || 'Anonymous',
+      score: item.score,
+      exam_type: item.exam_type,
+    }));
+  } catch (error) {
+    console.error("Error in leaderboard fallback:", error);
+    return [];
+  }
+};
+
+/**
+ * Get user rank in leaderboard
+ */
+export const getUserRank = async (
+  userId: string,
+  examType: 'cbt' | 'practice' = 'cbt'
+): Promise<number | null> => {
+  try {
+    const { data, error } = await supabase
+      .from("leaderboard")
+      .select("score")
+      .eq("exam_type", examType)
+      .eq("user_id", userId)
+      .order("score", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error && error.code === 'PGRST116') return null;
+    if (error) throw error;
+
+    const userScore = data?.score;
+    const { count } = await supabase
+      .from("leaderboard")
+      .select("*", { count: 'exact', head: true })
+      .eq("exam_type", examType)
+      .gt("score", userScore);
+
+    return (count || 0) + 1;
+  } catch (error) {
+    console.error("Error fetching user rank:", error);
+    return null;
+  }
+};
+
+/**
+ * Record exam result and update stats
+ */
+export const recordExamResult = async (
+  userId: string,
+  score: number,
+  examType: 'cbt' | 'practice',
+  subject: string,
+  durationSeconds: number
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    // Add to leaderboard
+    const { error: lbError } = await supabase
+      .from("leaderboard")
+      .insert({
+        user_id: userId,
+        score,
+        exam_type: examType,
+        subject,
+      });
+
+    if (lbError) throw lbError;
+
+    // Call RPC to update user stats
+    const { error: statsError } = await supabase
+      .rpc('update_user_stats_after_exam', {
+        p_user_id: userId,
+        p_score: score,
+        p_subject: subject,
+        p_duration_seconds: durationSeconds,
+      });
+
+    if (statsError) throw statsError;
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error recording exam result:", error);
+    return { success: false, error: String(error) };
+  }
+};
+
+/**
+ * Get performance insights for user
+ */
+export const getPerformanceInsights = async (
+  userId: string
+): Promise<PerformanceInsight[]> => {
+  try {
+    const { data, error } = await supabase
+      .from("performance_insights")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error("Error fetching insights:", error);
+    return [];
+  }
+};
+
+/**
+ * Create performance insight
+ */
+export const createPerformanceInsight = async (
+  userId: string,
+  insightType: 'improvement' | 'weakness' | 'strength' | 'encouragement',
+  subject: string,
+  message: string,
+  topic?: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const { error } = await supabase
+      .from("performance_insights")
+      .insert({
+        user_id: userId,
+        insight_type: insightType,
+        subject,
+        topic,
+        message,
+      });
+
+    if (error) throw error;
+    return { success: true };
+  } catch (error) {
+    console.error("Error creating insight:", error);
+    return { success: false, error: String(error) };
+  }
+};
+
+/**
+ * Mark insight as read
+ */
+export const markInsightAsRead = async (
+  insightId: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const { error } = await supabase
+      .from("performance_insights")
+      .update({ is_read: true })
+      .eq("id", insightId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (error) {
+    console.error("Error marking insight as read:", error);
+    return { success: false, error: String(error) };
+  }
+};
+
+/**
+ * Generate smart performance insights (rule-based AI logic)
+ */
+export const generateSmartInsights = async (
+  userId: string,
+  stats: UserStats,
+  recentScore: number
+): Promise<void> => {
+  try {
+    // Rule 1: If repeated low performance in subject
+    if (recentScore < 40 && stats.weakest_subject) {
+      await createPerformanceInsight(
+        userId,
+        'weakness',
+        stats.weakest_subject,
+        `Focus more on ${stats.weakest_subject} practice. Try dedicating 2-3 hours daily to this subject.`
+      );
+    }
+
+    // Rule 2: If score improved
+    if (recentScore > stats.average_score && recentScore > 50) {
+      await createPerformanceInsight(
+        userId,
+        'improvement',
+        stats.strongest_subject || 'General',
+        `Great improvement! Your score increased to ${recentScore}%. Keep up this momentum!`
+      );
+    }
+
+    // Rule 3: If high performer
+    if (recentScore >= 80) {
+      await createPerformanceInsight(
+        userId,
+        'strength',
+        stats.strongest_subject || 'General',
+        `Excellent performance! You're demonstrating strong mastery in ${stats.strongest_subject || 'the material'}. Consider helping peers!`
+      );
+    }
+
+    // Rule 4: General encouragement
+    if (stats.total_tests_taken > 5 && stats.average_score < 50) {
+      await createPerformanceInsight(
+        userId,
+        'encouragement',
+        'General',
+        `You've completed ${stats.total_tests_taken} tests. Consistency is key - keep practicing and you'll see improvement!`
+      );
+    }
+  } catch (error) {
+    console.error("Error generating insights:", error);
+  }
+};
+
+/**
+ * Get admin analytics
+ */
+export const getAdminAnalytics = async (): Promise<{
+  totalStudents: number;
+  activeStudents: number;
+  averagePlatformScore: number;
+  mostFailedSubject: string | null;
+  mostAttemptedSubject: string | null;
+}> => {
+  try {
+    // Get total students
+    const { count: totalStudents } = await supabase
+      .from("users")
+      .select("*", { count: 'exact', head: true });
+
+    // Get active students (those with stats)
+    const { count: activeStudents } = await supabase
+      .from("user_stats")
+      .select("*", { count: 'exact', head: true });
+
+    // Get average platform score
+    const { data: avgScoreData } = await supabase
+      .from("user_stats")
+      .select("average_score");
+    
+    const averagePlatformScore = avgScoreData
+      ? (avgScoreData.reduce((acc: number, s: any) => acc + (s.average_score || 0), 0) / (avgScoreData.length || 1))
+      : 0;
+
+    // Get most failed subject
+    const { data: subjectStats } = await supabase
+      .from("leaderboard")
+      .select("subject, score")
+      .lt("score", 50);
+
+    const failureCount: Record<string, number> = {};
+    (subjectStats || []).forEach((item: any) => {
+      failureCount[item.subject] = (failureCount[item.subject] || 0) + 1;
+    });
+
+    const mostFailedSubject = Object.entries(failureCount).sort(
+      ([, a], [, b]) => (b as number) - (a as number)
+    )[0]?.[0] || null;
+
+    // Get most attempted subject
+    const { data: allAttempts } = await supabase
+      .from("leaderboard")
+      .select("subject");
+
+    const attemptCount: Record<string, number> = {};
+    (allAttempts || []).forEach((item: any) => {
+      attemptCount[item.subject] = (attemptCount[item.subject] || 0) + 1;
+    });
+
+    const mostAttemptedSubject = Object.entries(attemptCount).sort(
+      ([, a], [, b]) => (b as number) - (a as number)
+    )[0]?.[0] || null;
+
+    return {
+      totalStudents: totalStudents || 0,
+      activeStudents: activeStudents || 0,
+      averagePlatformScore: Math.round(averagePlatformScore * 100) / 100,
+      mostFailedSubject,
+      mostAttemptedSubject,
+    };
+  } catch (error) {
+    console.error("Error fetching admin analytics:", error);
+    return {
+      totalStudents: 0,
+      activeStudents: 0,
+      averagePlatformScore: 0,
+      mostFailedSubject: null,
+      mostAttemptedSubject: null,
+    };
+  }
+};

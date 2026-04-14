@@ -8,6 +8,7 @@ import {
   LogOut,
   Play,
   FileText,
+  BarChart3,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -28,6 +29,7 @@ import { Button } from "@/components/ui/button";
 
 const navItems = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
+  { title: "Analytics", url: "/admin/analytics", icon: BarChart3 },
   { title: "Allowed Students", url: "/admin/students", icon: Users },
   { title: "Subjects", url: "/admin/subjects", icon: BookOpen },
   { title: "Topics", url: "/admin/topics", icon: Layers },

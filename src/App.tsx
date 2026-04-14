@@ -23,6 +23,8 @@ import QuestionBank from "./pages/admin/QuestionBank";
 import AutoGenerateQuestions from "./pages/admin/AutoGenerateQuestions";
 import ManageVideos from "./pages/admin/ManageVideos";
 import ManagePosts from "./pages/admin/ManagePosts";
+import StudentAnalytics from "./pages/StudentAnalytics";
+import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -76,6 +78,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <CbtResult />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/analytics"
+              element={
+                <ProtectedRoute>
+                  <StudentAnalytics />
                 </ProtectedRoute>
               }
             />
@@ -140,6 +150,14 @@ const App = () => (
               element={
                 <AdminRoute>
                   <ManagePosts />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/analytics"
+              element={
+                <AdminRoute>
+                  <AdminAnalytics />
                 </AdminRoute>
               }
             />
