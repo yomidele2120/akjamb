@@ -1,21 +1,27 @@
-import { useState } from 'react';
-import { useNavigate, useLocation, Navigate, Link } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BookOpen, AlertCircle } from 'lucide-react';
+import { useState } from "react";
+import { useNavigate, useLocation, Navigate, Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { BookOpen, AlertCircle } from "lucide-react";
 
 const AccountSetup = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const email = (location.state as { email?: string })?.email;
 
-  const [fullName, setFullName] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
+  const [fullName, setFullName] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   if (!email) {
@@ -24,20 +30,20 @@ const AccountSetup = () => {
 
   const handleSetup = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
 
     if (fullName.trim().length < 2) {
-      setError('Please enter your full name.');
+      setError("Please enter your full name.");
       return;
     }
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+      setError("Password must be at least 6 characters.");
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError("Passwords do not match.");
       return;
     }
 
@@ -45,13 +51,14 @@ const AccountSetup = () => {
 
     try {
       // Create Supabase auth user
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { full_name: fullName.trim() },
-        },
-      });
+      const { data: signUpData, error: signUpError } =
+        await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { full_name: fullName.trim() },
+          },
+        });
 
       if (signUpError) {
         setError(signUpError.message);
@@ -61,38 +68,38 @@ const AccountSetup = () => {
 
       const userId = signUpData.user?.id;
       if (!userId) {
-        setError('Account creation failed. Please try again.');
+        setError("Account creation failed. Please try again.");
         setLoading(false);
         return;
       }
 
       // Insert into users table
-      const { error: insertError } = await supabase
-        .from('users')
-        .insert({
-          id: userId,
-          email,
-          full_name: fullName.trim(),
-          has_set_password: true,
-        });
+      const { error: insertError } = await supabase.from("users").insert({
+        id: userId,
+        email,
+        full_name: fullName.trim(),
+        has_set_password: true,
+      });
 
       if (insertError) {
-        setError('Failed to save profile. Please try again.');
+        setError("Failed to save profile. Please try again.");
         setLoading(false);
         return;
       }
 
       // Mark allowed_users as used
-      const { error: setupError } = await supabase
-        .rpc('complete_account_setup', { user_email: email, user_id: userId });
+      const { error: setupError } = await supabase.rpc(
+        "complete_account_setup",
+        { user_email: email, user_id: userId },
+      );
 
       if (setupError) {
-        console.error('Setup link error:', setupError);
+        console.error("Setup link error:", setupError);
       }
 
-      navigate('/dashboard', { replace: true });
+      navigate("/dashboard", { replace: true });
     } catch {
-      setError('Something went wrong. Please try again.');
+      setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -104,7 +111,10 @@ const AccountSetup = () => {
         <div className="container mx-auto flex items-center px-4 py-4">
           <Link to="/" className="flex items-center gap-2">
             <BookOpen className="h-6 w-6 text-primary" />
-            <span className="text-lg font-bold text-foreground" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+            <span
+              className="text-lg font-bold text-foreground"
+              style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
+            >
               MEEKAH
             </span>
           </Link>
@@ -114,11 +124,15 @@ const AccountSetup = () => {
       <main className="flex flex-1 items-center justify-center px-4 py-12">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+            <CardTitle
+              className="text-2xl"
+              style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
+            >
               Set Up Your Account
             </CardTitle>
             <CardDescription>
-              Create your personal login credentials for <strong>{email}</strong>
+              Create your personal login credentials for{" "}
+              <strong>{email}</strong>
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -165,7 +179,7 @@ const AccountSetup = () => {
                 />
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Creating account…' : 'Create Account'}
+                {loading ? "Creating account…" : "Create Account"}
               </Button>
             </form>
           </CardContent>

@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { useEffect, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 export function useAdmin() {
   const { user, loading: authLoading } = useAuth();
@@ -16,12 +16,12 @@ export function useAdmin() {
     }
 
     supabase
-      .from('users')
-      .select('role')
-      .eq('id', user.id)
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
       .single()
       .then(({ data }) => {
-        setIsAdmin(data?.role === 'admin');
+        setIsAdmin(data?.role === "admin");
         setLoading(false);
       });
   }, [user, authLoading]);

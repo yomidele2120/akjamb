@@ -1,12 +1,20 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BookOpen, ChevronLeft, ChevronRight, Clock, Menu, X, AlertTriangle } from 'lucide-react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  BookOpen,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Menu,
+  X,
+  AlertTriangle,
+} from "lucide-react";
+import { useParams, useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,7 +54,9 @@ const CbtExam = () => {
 
   const [loading, setLoading] = useState(true);
   const [answers, setAnswers] = useState<AnswerSlot[]>([]);
-  const [questions, setQuestions] = useState<Map<string, QuestionData>>(new Map());
+  const [questions, setQuestions] = useState<Map<string, QuestionData>>(
+    new Map(),
+  );
   const [subjects, setSubjects] = useState<SubjectInfo[]>([]);
   const [subjectMap, setSubjectMap] = useState<Map<string, string>>(new Map());
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -54,7 +64,7 @@ const CbtExam = () => {
   const [showNav, setShowNav] = useState(false);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [sessionStatus, setSessionStatus] = useState('in_progress');
+  const [sessionStatus, setSessionStatus] = useState("in_progress");
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const savingRef = useRef(false);
@@ -66,19 +76,19 @@ const CbtExam = () => {
     const loadSession = async () => {
       // Get session info
       const { data: session } = await supabase
-        .from('cbt_sessions')
-        .select('*')
-        .eq('id', sessionId)
-        .eq('user_id', user.id)
+        .from("cbt_sessions")
+        .select("*")
+        .eq("id", sessionId)
+        .eq("user_id", user.id)
         .single();
 
       if (!session) {
-        toast({ title: 'Session not found', variant: 'destructive' });
-        navigate('/cbt/setup');
+        toast({ title: "Session not found", variant: "destructive" });
+        navigate("/cbt/setup");
         return;
       }
 
-      if (session.status === 'completed') {
+      if (session.status === "completed") {
         navigate(`/cbt/result/${sessionId}`);
         return;
       }
@@ -100,40 +110,45 @@ const CbtExam = () => {
 
       // Load answers
       const { data: answerData } = await supabase
-        .from('cbt_answers')
-        .select('*')
-        .eq('session_id', sessionId)
-        .order('question_index');
+        .from("cbt_answers")
+        .select("*")
+        .eq("session_id", sessionId)
+        .order("question_index");
 
-      if (!answerData) { setLoading(false); return; }
+      if (!answerData) {
+        setLoading(false);
+        return;
+      }
       setAnswers(answerData as AnswerSlot[]);
 
       // Load question details
-      const qIds = answerData.map(a => a.question_id);
+      const qIds = answerData.map((a) => a.question_id);
       const qMap = new Map<string, QuestionData>();
 
       // Fetch in batches of 50
       for (let i = 0; i < qIds.length; i += 50) {
         const batch = qIds.slice(i, i + 50);
         const { data: qData } = await supabase
-          .from('questions')
-          .select('id, question_text, option_a, option_b, option_c, option_d, correct_option')
-          .in('id', batch);
-        if (qData) qData.forEach(q => qMap.set(q.id, q));
+          .from("questions")
+          .select(
+            "id, question_text, option_a, option_b, option_c, option_d, correct_option",
+          )
+          .in("id", batch);
+        if (qData) qData.forEach((q) => qMap.set(q.id, q));
       }
       setQuestions(qMap);
 
       // Load subject names
-      const subjectIds = (session.subject_ids as string[]);
+      const subjectIds = session.subject_ids as string[];
       const { data: subData } = await supabase
-        .from('subjects')
-        .select('id, name')
-        .in('id', subjectIds);
+        .from("subjects")
+        .select("id, name")
+        .in("id", subjectIds);
 
       if (subData) {
         setSubjects(subData);
         const sMap = new Map<string, string>();
-        subData.forEach(s => sMap.set(s.id, s.name));
+        subData.forEach((s) => sMap.set(s.id, s.name));
         setSubjectMap(sMap);
       }
 
@@ -145,10 +160,10 @@ const CbtExam = () => {
 
   // Timer countdown
   useEffect(() => {
-    if (timeLeft <= 0 || sessionStatus !== 'in_progress') return;
+    if (timeLeft <= 0 || sessionStatus !== "in_progress") return;
 
     timerRef.current = setInterval(() => {
-      setTimeLeft(prev => {
+      setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timerRef.current!);
           // Auto-submit
@@ -159,33 +174,43 @@ const CbtExam = () => {
       });
     }, 1000);
 
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, [timeLeft > 0, sessionStatus]);
 
   const formatTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
   // Save answer
-  const saveAnswer = useCallback(async (answerSlotId: string, option: string) => {
-    if (savingRef.current) return;
-    savingRef.current = true;
+  const saveAnswer = useCallback(
+    async (answerSlotId: string, option: string) => {
+      if (savingRef.current) return;
+      savingRef.current = true;
 
-    // Optimistic update
-    setAnswers(prev => prev.map(a =>
-      a.id === answerSlotId ? { ...a, selected_option: option } : a
-    ));
+      // Optimistic update
+      setAnswers((prev) =>
+        prev.map((a) =>
+          a.id === answerSlotId ? { ...a, selected_option: option } : a,
+        ),
+      );
 
-    await supabase
-      .from('cbt_answers')
-      .update({ selected_option: option, updated_at: new Date().toISOString() })
-      .eq('id', answerSlotId);
+      await supabase
+        .from("cbt_answers")
+        .update({
+          selected_option: option,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", answerSlotId);
 
-    savingRef.current = false;
-  }, []);
+      savingRef.current = false;
+    },
+    [],
+  );
 
   // Submit exam
   const submitExam = async (sid: string) => {
@@ -194,37 +219,44 @@ const CbtExam = () => {
     try {
       // Get all answers with question data
       const { data: finalAnswers } = await supabase
-        .from('cbt_answers')
-        .select('*, questions(correct_option)')
-        .eq('session_id', sid);
+        .from("cbt_answers")
+        .select("*, questions(correct_option)")
+        .eq("session_id", sid);
 
-      if (!finalAnswers) throw new Error('Could not load answers');
+      if (!finalAnswers) throw new Error("Could not load answers");
 
       // Calculate scores
-      const subjectScores: Record<string, { correct: number; total: number; name: string }> = {};
+      const subjectScores: Record<
+        string,
+        { correct: number; total: number; name: string }
+      > = {};
 
       // Get subject names
       const { data: session } = await supabase
-        .from('cbt_sessions')
-        .select('subject_ids')
-        .eq('id', sid)
+        .from("cbt_sessions")
+        .select("subject_ids")
+        .eq("id", sid)
         .single();
 
       const subjectIds = (session?.subject_ids as string[]) || [];
       const { data: subData } = await supabase
-        .from('subjects')
-        .select('id, name')
-        .in('id', subjectIds);
+        .from("subjects")
+        .select("id, name")
+        .in("id", subjectIds);
 
       const sNames = new Map<string, string>();
-      subData?.forEach(s => sNames.set(s.id, s.name));
+      subData?.forEach((s) => sNames.set(s.id, s.name));
 
       let totalCorrect = 0;
 
       for (const ans of finalAnswers) {
         const subId = ans.subject_id;
         if (!subjectScores[subId]) {
-          subjectScores[subId] = { correct: 0, total: 0, name: sNames.get(subId) || 'Unknown' };
+          subjectScores[subId] = {
+            correct: 0,
+            total: 0,
+            name: sNames.get(subId) || "Unknown",
+          };
         }
         subjectScores[subId].total++;
 
@@ -237,9 +269,9 @@ const CbtExam = () => {
 
       // Save result
       const { data: currentUser } = await supabase.auth.getUser();
-      if (!currentUser.user) throw new Error('Not authenticated');
+      if (!currentUser.user) throw new Error("Not authenticated");
 
-      await supabase.from('cbt_results').insert({
+      await supabase.from("cbt_results").insert({
         user_id: currentUser.user.id,
         session_id: sid,
         total_score: totalCorrect,
@@ -249,14 +281,21 @@ const CbtExam = () => {
       });
 
       // Mark session as completed
-      await supabase.from('cbt_sessions').update({
-        status: 'completed',
-        end_time: new Date().toISOString(),
-      }).eq('id', sid);
+      await supabase
+        .from("cbt_sessions")
+        .update({
+          status: "completed",
+          end_time: new Date().toISOString(),
+        })
+        .eq("id", sid);
 
       navigate(`/cbt/result/${sid}`);
     } catch (e: any) {
-      toast({ title: 'Submit error', description: e.message, variant: 'destructive' });
+      toast({
+        title: "Submit error",
+        description: e.message,
+        variant: "destructive",
+      });
       setSubmitting(false);
     }
   };
@@ -270,48 +309,68 @@ const CbtExam = () => {
   }
 
   const currentAnswer = answers[currentIndex];
-  const currentQuestion = currentAnswer ? questions.get(currentAnswer.question_id) : null;
-  const currentSubjectName = currentAnswer ? subjectMap.get(currentAnswer.subject_id) || '' : '';
-  const answeredCount = answers.filter(a => a.selected_option !== null).length;
+  const currentQuestion = currentAnswer
+    ? questions.get(currentAnswer.question_id)
+    : null;
+  const currentSubjectName = currentAnswer
+    ? subjectMap.get(currentAnswer.subject_id) || ""
+    : "";
+  const answeredCount = answers.filter(
+    (a) => a.selected_option !== null,
+  ).length;
 
   // Group answers by subject for the nav panel
-  const answersBySubject = subjects.map(s => ({
+  const answersBySubject = subjects.map((s) => ({
     subject: s,
-    answers: answers.filter(a => a.subject_id === s.id),
+    answers: answers.filter((a) => a.subject_id === s.id),
   }));
 
   const isWarning = timeLeft <= 300; // 5 min warning
   const isDanger = timeLeft <= 60; // 1 min
 
-  const options = currentQuestion ? [
-    { key: 'A', text: currentQuestion.option_a },
-    { key: 'B', text: currentQuestion.option_b },
-    { key: 'C', text: currentQuestion.option_c },
-    { key: 'D', text: currentQuestion.option_d },
-  ] : [];
+  const options = currentQuestion
+    ? [
+        { key: "A", text: currentQuestion.option_a },
+        { key: "B", text: currentQuestion.option_b },
+        { key: "C", text: currentQuestion.option_c },
+        { key: "D", text: currentQuestion.option_d },
+      ]
+    : [];
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Top bar - Timer + Info */}
-      <header className={cn(
-        'sticky top-0 z-50 border-b px-4 py-2',
-        isDanger ? 'bg-red-500/10 border-red-500/30' :
-        isWarning ? 'bg-yellow-500/10 border-yellow-500/30' :
-        'bg-background border-border'
-      )}>
+      <header
+        className={cn(
+          "sticky top-0 z-50 border-b px-4 py-2",
+          isDanger
+            ? "bg-red-500/10 border-red-500/30"
+            : isWarning
+              ? "bg-yellow-500/10 border-yellow-500/30"
+              : "bg-background border-border",
+        )}
+      >
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <BookOpen className="h-5 w-5 text-primary hidden sm:block" />
-            <span className="text-xs text-muted-foreground hidden sm:block">CBT Exam</span>
-            <span className="text-xs bg-muted rounded px-2 py-0.5 font-medium">{currentSubjectName}</span>
+            <span className="text-xs text-muted-foreground hidden sm:block">
+              CBT Exam
+            </span>
+            <span className="text-xs bg-muted rounded px-2 py-0.5 font-medium">
+              {currentSubjectName}
+            </span>
           </div>
 
-          <div className={cn(
-            'flex items-center gap-1.5 font-mono text-lg font-bold',
-            isDanger ? 'text-red-500 animate-pulse' :
-            isWarning ? 'text-yellow-500' :
-            'text-foreground'
-          )}>
+          <div
+            className={cn(
+              "flex items-center gap-1.5 font-mono text-lg font-bold",
+              isDanger
+                ? "text-red-500 animate-pulse"
+                : isWarning
+                  ? "text-yellow-500"
+                  : "text-foreground",
+            )}
+          >
             <Clock className="h-4 w-4" />
             {formatTime(timeLeft)}
           </div>
@@ -326,7 +385,11 @@ const CbtExam = () => {
               className="lg:hidden"
               onClick={() => setShowNav(!showNav)}
             >
-              {showNav ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+              {showNav ? (
+                <X className="h-4 w-4" />
+              ) : (
+                <Menu className="h-4 w-4" />
+              )}
             </Button>
           </div>
         </div>
@@ -342,7 +405,9 @@ const CbtExam = () => {
                 <span className="text-sm font-medium text-muted-foreground">
                   Question {currentIndex + 1} of {answers.length}
                 </span>
-                <span className="text-xs bg-muted rounded-full px-2.5 py-1">{currentSubjectName}</span>
+                <span className="text-xs bg-muted rounded-full px-2.5 py-1">
+                  {currentSubjectName}
+                </span>
               </div>
 
               {/* Question card */}
@@ -353,29 +418,34 @@ const CbtExam = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2.5">
-                  {options.map(opt => {
-                    const isSelected = currentAnswer.selected_option === opt.key;
+                  {options.map((opt) => {
+                    const isSelected =
+                      currentAnswer.selected_option === opt.key;
                     return (
                       <button
                         key={opt.key}
                         type="button"
                         onClick={() => saveAnswer(currentAnswer.id, opt.key)}
                         className={cn(
-                          'flex w-full items-start gap-3 rounded-lg border p-3 md:p-4 text-left transition-all',
+                          "flex w-full items-start gap-3 rounded-lg border p-3 md:p-4 text-left transition-all",
                           isSelected
-                            ? 'border-primary bg-primary/10 ring-2 ring-primary/20'
-                            : 'border-border hover:border-primary/50 hover:bg-accent/50'
+                            ? "border-primary bg-primary/10 ring-2 ring-primary/20"
+                            : "border-border hover:border-primary/50 hover:bg-accent/50",
                         )}
                       >
-                        <span className={cn(
-                          'flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-sm font-semibold',
-                          isSelected
-                            ? 'border-primary bg-primary text-primary-foreground'
-                            : 'border-muted-foreground/30'
-                        )}>
+                        <span
+                          className={cn(
+                            "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-sm font-semibold",
+                            isSelected
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-muted-foreground/30",
+                          )}
+                        >
                           {opt.key}
                         </span>
-                        <span className="text-sm md:text-base pt-0.5">{opt.text}</span>
+                        <span className="text-sm md:text-base pt-0.5">
+                          {opt.text}
+                        </span>
                       </button>
                     );
                   })}
@@ -441,20 +511,35 @@ const CbtExam = () => {
         {/* Navigation panel - mobile modal */}
         {showNav && (
           <div className="fixed inset-0 z-40 lg:hidden">
-            <div className="absolute inset-0 bg-black/50" onClick={() => setShowNav(false)} />
+            <div
+              className="absolute inset-0 bg-black/50"
+              onClick={() => setShowNav(false)}
+            />
             <div className="absolute right-0 top-0 bottom-0 w-80 max-w-[85vw] bg-background border-l border-border p-4 overflow-y-auto animate-in slide-in-from-right">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-heading font-bold text-sm">Question Navigator</h3>
-                <Button variant="ghost" size="sm" onClick={() => setShowNav(false)}>
+                <h3 className="font-heading font-bold text-sm">
+                  Question Navigator
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowNav(false)}
+                >
                   <X className="h-4 w-4" />
                 </Button>
               </div>
               <NavPanel
                 answersBySubject={answersBySubject}
                 currentIndex={currentIndex}
-                onJump={(i) => { setCurrentIndex(i); setShowNav(false); }}
+                onJump={(i) => {
+                  setCurrentIndex(i);
+                  setShowNav(false);
+                }}
                 answers={answers}
-                onSubmit={() => { setShowNav(false); setShowSubmitDialog(true); }}
+                onSubmit={() => {
+                  setShowNav(false);
+                  setShowSubmitDialog(true);
+                }}
                 answeredCount={answeredCount}
                 total={answers.length}
               />
@@ -472,10 +557,12 @@ const CbtExam = () => {
               Submit Exam?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              You have answered {answeredCount} out of {answers.length} questions.
+              You have answered {answeredCount} out of {answers.length}{" "}
+              questions.
               {answeredCount < answers.length && (
                 <span className="block mt-2 text-yellow-600 font-medium">
-                  ⚠️ {answers.length - answeredCount} questions are unanswered and will be marked wrong.
+                  ⚠️ {answers.length - answeredCount} questions are unanswered
+                  and will be marked wrong.
                 </span>
               )}
               <span className="block mt-2">This action cannot be undone.</span>
@@ -488,7 +575,7 @@ const CbtExam = () => {
               onClick={() => sessionId && submitExam(sessionId)}
               disabled={submitting}
             >
-              {submitting ? 'Submitting…' : 'Submit Exam'}
+              {submitting ? "Submitting…" : "Submit Exam"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -528,7 +615,7 @@ function NavPanel({
           </h4>
           <div className="grid grid-cols-8 gap-1">
             {subAnswers.map((a) => {
-              const globalIndex = answers.findIndex(x => x.id === a.id);
+              const globalIndex = answers.findIndex((x) => x.id === a.id);
               const isCurrent = globalIndex === currentIndex;
               const isAnswered = a.selected_option !== null;
 
@@ -538,12 +625,12 @@ function NavPanel({
                   type="button"
                   onClick={() => onJump(globalIndex)}
                   className={cn(
-                    'h-8 w-full rounded text-xs font-medium transition-all',
+                    "h-8 w-full rounded text-xs font-medium transition-all",
                     isCurrent
-                      ? 'bg-primary text-primary-foreground ring-2 ring-primary/50'
+                      ? "bg-primary text-primary-foreground ring-2 ring-primary/50"
                       : isAnswered
-                        ? 'bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/30'
-                        : 'bg-muted text-muted-foreground border border-border hover:border-primary/30'
+                        ? "bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/30"
+                        : "bg-muted text-muted-foreground border border-border hover:border-primary/30",
                   )}
                 >
                   {globalIndex + 1}

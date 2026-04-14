@@ -30,7 +30,7 @@ function parseCSV(text: string): string[][] {
       } else {
         if (ch === '"') {
           inQuotes = true;
-        } else if (ch === ',') {
+        } else if (ch === ",") {
           row.push(current.trim());
           current = "";
         } else {
@@ -45,7 +45,13 @@ function parseCSV(text: string): string[][] {
 }
 
 // Match answer text to correct option letter
-function matchAnswerToLetter(answer: string, optA: string, optB: string, optC: string, optD: string): string {
+function matchAnswerToLetter(
+  answer: string,
+  optA: string,
+  optB: string,
+  optC: string,
+  optD: string,
+): string {
   const ans = answer.trim().toLowerCase();
   if (ans === "a") return "A";
   if (ans === "b") return "B";
@@ -56,21 +62,44 @@ function matchAnswerToLetter(answer: string, optA: string, optB: string, optC: s
   if (ans === optC.trim().toLowerCase()) return "C";
   if (ans === optD.trim().toLowerCase()) return "D";
   // Partial match
-  if (optA.trim().toLowerCase().includes(ans) || ans.includes(optA.trim().toLowerCase())) return "A";
-  if (optB.trim().toLowerCase().includes(ans) || ans.includes(optB.trim().toLowerCase())) return "B";
-  if (optC.trim().toLowerCase().includes(ans) || ans.includes(optC.trim().toLowerCase())) return "C";
-  if (optD.trim().toLowerCase().includes(ans) || ans.includes(optD.trim().toLowerCase())) return "D";
+  if (
+    optA.trim().toLowerCase().includes(ans) ||
+    ans.includes(optA.trim().toLowerCase())
+  )
+    return "A";
+  if (
+    optB.trim().toLowerCase().includes(ans) ||
+    ans.includes(optB.trim().toLowerCase())
+  )
+    return "B";
+  if (
+    optC.trim().toLowerCase().includes(ans) ||
+    ans.includes(optC.trim().toLowerCase())
+  )
+    return "C";
+  if (
+    optD.trim().toLowerCase().includes(ans) ||
+    ans.includes(optD.trim().toLowerCase())
+  )
+    return "D";
   return "A"; // fallback
 }
 
 // Try to detect CSV column mapping from header row
 function detectColumns(header: string[]): {
-  topic: number; question: number; optA: number; optB: number; optC: number; optD: number; answer: number;
+  topic: number;
+  question: number;
+  optA: number;
+  optB: number;
+  optC: number;
+  optD: number;
+  answer: number;
 } | null {
-  const h = header.map(c => c.toLowerCase().replace(/[^a-z0-9]/g, ""));
-  
-  const find = (patterns: string[]) => h.findIndex(c => patterns.some(p => c.includes(p)));
-  
+  const h = header.map((c) => c.toLowerCase().replace(/[^a-z0-9]/g, ""));
+
+  const find = (patterns: string[]) =>
+    h.findIndex((c) => patterns.some((p) => c.includes(p)));
+
   const question = find(["question", "quest"]);
   const optA = find(["optiona", "opta", "choicea"]);
   const optB = find(["optionb", "optb", "choiceb"]);
@@ -78,12 +107,27 @@ function detectColumns(header: string[]): {
   const optD = find(["optiond", "optd", "choiced"]);
   const answer = find(["answer", "correct", "ans"]);
   const topic = find(["topic", "chapter", "section", "category"]);
-  
-  if (question === -1 || optA === -1 || optB === -1 || optC === -1 || optD === -1 || answer === -1) {
+
+  if (
+    question === -1 ||
+    optA === -1 ||
+    optB === -1 ||
+    optC === -1 ||
+    optD === -1 ||
+    answer === -1
+  ) {
     return null;
   }
-  
-  return { topic: topic === -1 ? -1 : topic, question, optA, optB, optC, optD, answer };
+
+  return {
+    topic: topic === -1 ? -1 : topic,
+    question,
+    optA,
+    optB,
+    optC,
+    optD,
+    answer,
+  };
 }
 
 serve(async (req) => {
@@ -98,10 +142,16 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
     // Verify admin
-    const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user } } = await userClient.auth.getUser();
+    const userClient = createClient(
+      supabaseUrl,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      {
+        global: { headers: { Authorization: authHeader } },
+      },
+    );
+    const {
+      data: { user },
+    } = await userClient.auth.getUser();
     if (!user) throw new Error("Unauthorized");
 
     const adminClient = createClient(supabaseUrl, supabaseKey);
@@ -154,18 +204,19 @@ serve(async (req) => {
       console.log("Parsing CSV directly (no AI)...");
       const textContent = atob(file_base64);
       const rows = parseCSV(textContent);
-      
-      if (rows.length < 2) throw new Error("CSV file is empty or has no data rows");
-      
+
+      if (rows.length < 2)
+        throw new Error("CSV file is empty or has no data rows");
+
       const cols = detectColumns(rows[0]);
       if (!cols) {
         throw new Error(
-          "Could not detect CSV columns. Expected headers: Topic, Question, Option A, Option B, Option C, Option D, Answer"
+          "Could not detect CSV columns. Expected headers: Topic, Question, Option A, Option B, Option C, Option D, Answer",
         );
       }
-      
+
       console.log(`CSV detected ${rows.length - 1} data rows`);
-      
+
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
         const questionText = row[cols.question] || "";
@@ -174,12 +225,19 @@ serve(async (req) => {
         const optC = row[cols.optC] || "";
         const optD = row[cols.optD] || "";
         const answerRaw = row[cols.answer] || "";
-        const topicName = cols.topic >= 0 ? (row[cols.topic] || "General") : "General";
-        
+        const topicName =
+          cols.topic >= 0 ? row[cols.topic] || "General" : "General";
+
         if (!questionText || !optA || !optB) continue; // skip empty rows
-        
-        const correctOption = matchAnswerToLetter(answerRaw, optA, optB, optC, optD);
-        
+
+        const correctOption = matchAnswerToLetter(
+          answerRaw,
+          optA,
+          optB,
+          optC,
+          optD,
+        );
+
         parsedQuestions.push({
           question_text: questionText,
           option_a: optA,
@@ -191,9 +249,8 @@ serve(async (req) => {
           topic_name: topicName,
         });
       }
-      
+
       console.log(`CSV parsed ${parsedQuestions.length} valid questions`);
-      
     } else {
       // ========== AI PARSING FOR PDFs ==========
       const topicList = (existingTopics ?? []).map((t) => t.name).join(", ");
@@ -226,31 +283,43 @@ Return a JSON object: { "questions": [ { "question_text": "...", "option_a": "..
           {
             role: "user",
             content: [
-              { type: "image_url", image_url: { url: `data:application/pdf;base64,${file_base64}` } },
-              { type: "text", text: prompt }
-            ]
-          }
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:application/pdf;base64,${file_base64}`,
+                },
+              },
+              { type: "text", text: prompt },
+            ],
+          },
         ];
 
-        const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${lovableApiKey}`,
+        const aiResp = await fetch(
+          "https://ai.gateway.lovable.dev/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${lovableApiKey}`,
+            },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-pro",
+              messages,
+              response_format: { type: "json_object" },
+              temperature: 0.1,
+            }),
           },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-pro",
-            messages,
-            response_format: { type: "json_object" },
-            temperature: 0.1,
-          }),
-        });
+        );
 
         if (!aiResp.ok) {
           const errText = await aiResp.text();
           console.error("Lovable AI error:", aiResp.status, errText);
-          if (aiResp.status === 429) throw new Error("AI rate limit reached. Please try again in a moment.");
-          if (aiResp.status === 402) throw new Error("AI credits required. Please add funds.");
+          if (aiResp.status === 429)
+            throw new Error(
+              "AI rate limit reached. Please try again in a moment.",
+            );
+          if (aiResp.status === 402)
+            throw new Error("AI credits required. Please add funds.");
           throw new Error("AI processing failed");
         }
 
@@ -259,13 +328,23 @@ Return a JSON object: { "questions": [ { "question_text": "...", "option_a": "..
       } else if (geminiKey) {
         console.log("Using direct Gemini API for PDF...");
         const geminiBody = {
-          contents: [{
-            parts: [
-              { inline_data: { mime_type: "application/pdf", data: file_base64 } },
-              { text: prompt },
-            ],
-          }],
-          generationConfig: { responseMimeType: "application/json", temperature: 0.1 },
+          contents: [
+            {
+              parts: [
+                {
+                  inline_data: {
+                    mime_type: "application/pdf",
+                    data: file_base64,
+                  },
+                },
+                { text: prompt },
+              ],
+            },
+          ],
+          generationConfig: {
+            responseMimeType: "application/json",
+            temperature: 0.1,
+          },
         };
 
         let geminiData: Record<string, unknown> | null = null;
@@ -274,25 +353,39 @@ Return a JSON object: { "questions": [ { "question_text": "...", "option_a": "..
         const bodyStr = JSON.stringify(geminiBody);
 
         for (let attempt = 0; attempt < 3; attempt++) {
-          const resp = await fetch(geminiUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: bodyStr });
-          if (resp.ok) { geminiData = await resp.json(); break; }
+          const resp = await fetch(geminiUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: bodyStr,
+          });
+          if (resp.ok) {
+            geminiData = await resp.json();
+            break;
+          }
           lastError = await resp.text();
-          if (resp.status !== 503 && resp.status !== 429) { throw new Error("AI processing failed"); }
+          if (resp.status !== 503 && resp.status !== 429) {
+            throw new Error("AI processing failed");
+          }
           console.log(`Gemini ${resp.status}, retrying (${attempt + 1}/3)...`);
           await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
         }
         if (!geminiData) throw new Error("AI processing failed after retries");
-        aiResult = (geminiData as any).candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+        aiResult =
+          (geminiData as any).candidates?.[0]?.content?.parts?.[0]?.text ?? "";
       } else {
         throw new Error("No AI API key configured");
       }
 
       // Parse AI JSON response
       try {
-        let cleaned = aiResult.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+        let cleaned = aiResult
+          .replace(/```json\s*/gi, "")
+          .replace(/```\s*/g, "")
+          .trim();
         if (!cleaned.startsWith("{") && !cleaned.startsWith("[")) {
           const s = cleaned.indexOf("{");
-          if (s !== -1) cleaned = cleaned.slice(s, cleaned.lastIndexOf("}") + 1);
+          if (s !== -1)
+            cleaned = cleaned.slice(s, cleaned.lastIndexOf("}") + 1);
         }
         const parsed = JSON.parse(cleaned);
         parsedQuestions = parsed.questions || [];
@@ -302,7 +395,8 @@ Return a JSON object: { "questions": [ { "question_text": "...", "option_a": "..
       }
     }
 
-    if (!parsedQuestions.length) throw new Error("No questions extracted from document");
+    if (!parsedQuestions.length)
+      throw new Error("No questions extracted from document");
 
     // Create missing topics
     for (const q of parsedQuestions) {
@@ -313,14 +407,20 @@ Return a JSON object: { "questions": [ { "question_text": "...", "option_a": "..
           .insert({ name: q.topic_name, subject_id })
           .select("id")
           .single();
-        if (error) { console.error("Topic insert error:", error); continue; }
+        if (error) {
+          console.error("Topic insert error:", error);
+          continue;
+        }
         topicMap.set(key, newTopic.id);
       }
     }
 
     // Normalize correct_option
     const normalizeOption = (opt: string): string | null => {
-      const letter = opt.trim().toUpperCase().replace(/[^A-D]/g, "");
+      const letter = opt
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-D]/g, "");
       if (letter.length === 1 && "ABCD".includes(letter)) return letter;
       return null;
     };
@@ -347,7 +447,9 @@ Return a JSON object: { "questions": [ { "question_text": "...", "option_a": "..
     let totalInserted = 0;
     for (let i = 0; i < rows.length; i += 100) {
       const batch = rows.slice(i, i + 100);
-      const { error: insertErr } = await adminClient.from("questions").insert(batch);
+      const { error: insertErr } = await adminClient
+        .from("questions")
+        .insert(batch);
       if (insertErr) {
         console.error(`Batch insert error at ${i}:`, insertErr);
         throw new Error("Failed to save questions: " + insertErr.message);
@@ -361,19 +463,26 @@ Return a JSON object: { "questions": [ { "question_text": "...", "option_a": "..
       JSON.stringify({
         success: true,
         count: totalInserted,
-        topics_created: Math.max(0,
+        topics_created: Math.max(
+          0,
           parsedQuestions
             .map((q) => q.topic_name)
-            .filter((v, i, a) => a.indexOf(v) === i).length - (existingTopics?.length ?? 0)
+            .filter((v, i, a) => a.indexOf(v) === i).length -
+            (existingTopics?.length ?? 0),
         ),
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
     console.error("parse-questions error:", e);
     return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({
+        error: e instanceof Error ? e.message : "Unknown error",
+      }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   }
 });

@@ -18,14 +18,20 @@ interface DiscoveredQuestion {
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS")
+    return new Response(null, { headers: corsHeaders });
 
   try {
-    const { subject_name, topic_name, exam_type, count, subject_id, topic_id } = await req.json();
+    const { subject_name, topic_name, exam_type, count, subject_id, topic_id } =
+      await req.json();
     if (!subject_name || !subject_id) {
-      return new Response(JSON.stringify({ error: "subject_name and subject_id are required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "subject_name and subject_id are required" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     const SERPER_API_KEY = Deno.env.get("SERPER_API_KEY");
@@ -54,21 +60,42 @@ serve(async (req) => {
         console.log("Searching:", query);
         const searchRes = await fetch("https://google.serper.dev/search", {
           method: "POST",
-          headers: { "X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json" },
+          headers: {
+            "X-API-KEY": SERPER_API_KEY,
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({ q: query, num: 10 }),
         });
         const searchData = await searchRes.json();
-        console.log("Search status:", searchRes.status, "results:", JSON.stringify(searchData).slice(0, 500));
+        console.log(
+          "Search status:",
+          searchRes.status,
+          "results:",
+          JSON.stringify(searchData).slice(0, 500),
+        );
         if (searchRes.ok) {
-          const urls = (searchData.organic || []).map((r: any) => r.link).filter(Boolean);
+          const urls = (searchData.organic || [])
+            .map((r: any) => r.link)
+            .filter(Boolean);
           console.log("Found URLs:", urls.length);
           allUrls.push(...urls);
         } else {
-          console.error("Serper error:", searchRes.status, JSON.stringify(searchData));
+          console.error(
+            "Serper error:",
+            searchRes.status,
+            JSON.stringify(searchData),
+          );
           if (searchData.message?.includes("Not enough credits")) {
-            return new Response(JSON.stringify({ error: "Serper API credits exhausted. Please top up your Serper account at serper.dev." }), {
-              status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
+            return new Response(
+              JSON.stringify({
+                error:
+                  "Serper API credits exhausted. Please top up your Serper account at serper.dev.",
+              }),
+              {
+                status: 402,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              },
+            );
           }
         }
       } catch (e) {
@@ -81,25 +108,39 @@ serve(async (req) => {
     console.log(`Found ${uniqueUrls.length} unique URLs`);
 
     if (uniqueUrls.length === 0) {
-      return new Response(JSON.stringify({ error: "No search results found. Try a different subject/topic." }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          error: "No search results found. Try a different subject/topic.",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     // STEP 2: Scrape URLs with Firecrawl
     console.log("Step 2: Scraping URLs with Firecrawl...");
     const scrapedTexts: { text: string; url: string }[] = [];
-    
+
     for (const url of uniqueUrls.slice(0, 10)) {
       try {
         const scrapeRes = await fetch("https://api.firecrawl.dev/v1/scrape", {
           method: "POST",
-          headers: { Authorization: `Bearer ${FIRECRAWL_API_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ url, formats: ["markdown"], onlyMainContent: true }),
+          headers: {
+            Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            url,
+            formats: ["markdown"],
+            onlyMainContent: true,
+          }),
         });
         if (scrapeRes.ok) {
           const scrapeData = await scrapeRes.json();
-          const markdown = scrapeData.data?.markdown || scrapeData.markdown || "";
+          const markdown =
+            scrapeData.data?.markdown || scrapeData.markdown || "";
           if (markdown.length > 100) {
             // Truncate to avoid huge payloads - keep first 8000 chars per page
             scrapedTexts.push({ text: markdown.slice(0, 8000), url });
@@ -113,9 +154,15 @@ serve(async (req) => {
     console.log(`Successfully scraped ${scrapedTexts.length} pages`);
 
     if (scrapedTexts.length === 0) {
-      return new Response(JSON.stringify({ error: "Could not scrape any pages. Sites may be blocked." }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          error: "Could not scrape any pages. Sites may be blocked.",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     // STEP 3: AI Cleaning & Structuring
@@ -148,33 +195,52 @@ ${combinedContent}
 
 Return ONLY a valid JSON array. No other text.`;
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "system",
-            content: `You extract and clean exam questions. Return ONLY a JSON array of objects with these exact fields: question, options (object with A/B/C/D keys), answer (A/B/C/D), explanation, difficulty (easy/medium/hard), topic (string), source_url (string). No markdown fences, no extra text.`,
-          },
-          { role: "user", content: aiPrompt },
-        ],
-      }),
-    });
+    const aiResponse = await fetch(
+      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            {
+              role: "system",
+              content: `You extract and clean exam questions. Return ONLY a JSON array of objects with these exact fields: question, options (object with A/B/C/D keys), answer (A/B/C/D), explanation, difficulty (easy/medium/hard), topic (string), source_url (string). No markdown fences, no extra text.`,
+            },
+            { role: "user", content: aiPrompt },
+          ],
+        }),
+      },
+    );
 
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();
       console.error("AI error:", aiResponse.status, errText);
       if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "AI rate limit reached. Please try again in a moment." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({
+            error: "AI rate limit reached. Please try again in a moment.",
+          }),
+          {
+            status: 429,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
       if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add funds in Settings > Workspace > Usage." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({
+            error:
+              "AI credits exhausted. Please add funds in Settings > Workspace > Usage.",
+          }),
+          {
+            status: 402,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
       throw new Error("AI processing failed");
     }
@@ -183,7 +249,10 @@ Return ONLY a valid JSON array. No other text.`;
     let rawContent = aiData.choices?.[0]?.message?.content || "";
 
     // Clean markdown fences
-    rawContent = rawContent.replace(/```json\s*/gi, "").replace(/```\s*/gi, "").trim();
+    rawContent = rawContent
+      .replace(/```json\s*/gi, "")
+      .replace(/```\s*/gi, "")
+      .trim();
 
     let questions: DiscoveredQuestion[];
     try {
@@ -198,7 +267,8 @@ Return ONLY a valid JSON array. No other text.`;
       }
     }
 
-    if (!Array.isArray(questions)) throw new Error("AI did not return an array");
+    if (!Array.isArray(questions))
+      throw new Error("AI did not return an array");
 
     // STEP 4: Validation
     console.log(`Step 4: Validating ${questions.length} questions...`);
@@ -214,7 +284,9 @@ Return ONLY a valid JSON array. No other text.`;
       .eq("subject_id", subject_id);
 
     const existingTexts = new Set(
-      (existingQuestions || []).map((q: any) => q.question_text.toLowerCase().trim().slice(0, 80))
+      (existingQuestions || []).map((q: any) =>
+        q.question_text.toLowerCase().trim().slice(0, 80),
+      ),
     );
 
     const validQuestions: any[] = [];
@@ -253,7 +325,9 @@ Return ONLY a valid JSON array. No other text.`;
 
       seenTexts.add(normalizedText);
 
-      const difficulty = ["easy", "medium", "hard"].includes(q.difficulty) ? q.difficulty : "medium";
+      const difficulty = ["easy", "medium", "hard"].includes(q.difficulty)
+        ? q.difficulty
+        : "medium";
 
       validQuestions.push({
         question_text: q.question,
@@ -272,7 +346,9 @@ Return ONLY a valid JSON array. No other text.`;
       });
     }
 
-    console.log(`Valid: ${validQuestions.length}, Duplicates: ${duplicates.length}, Rejected: ${rejected.length}`);
+    console.log(
+      `Valid: ${validQuestions.length}, Duplicates: ${duplicates.length}, Rejected: ${rejected.length}`,
+    );
 
     return new Response(
       JSON.stringify({
@@ -288,12 +364,16 @@ Return ONLY a valid JSON array. No other text.`;
         duplicate_questions: duplicates,
         rejected_questions: rejected,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e: any) {
     console.error("discover-questions error:", e);
-    return new Response(JSON.stringify({ error: e.message || "Something went wrong" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: e.message || "Something went wrong" }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 });

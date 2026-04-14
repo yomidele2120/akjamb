@@ -1,53 +1,67 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BookOpen, AlertCircle } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { BookOpen, AlertCircle } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
-type Mode = 'login' | 'first-time';
+type Mode = "login" | "first-time";
 
 const Login = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [mode, setMode] = useState<Mode>('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [generalPassword, setGeneralPassword] = useState('');
-  const [error, setError] = useState('');
+  const [mode, setMode] = useState<Mode>("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [generalPassword, setGeneralPassword] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   // Redirect if already logged in
   if (user) {
-    navigate('/dashboard', { replace: true });
+    navigate("/dashboard", { replace: true });
     return null;
   }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     try {
       // Check whitelist first
-      const { data: rawData, error: whitelistError } = await supabase
-        .rpc('check_email_whitelist', { check_email: email.trim() });
+      const { data: rawData, error: whitelistError } = await supabase.rpc(
+        "check_email_whitelist",
+        { check_email: email.trim() },
+      );
 
       if (whitelistError) throw whitelistError;
 
-      const whitelistData = rawData as unknown as { exists: boolean; is_used: boolean; linked_user_id: string | null };
+      const whitelistData = rawData as unknown as {
+        exists: boolean;
+        is_used: boolean;
+        linked_user_id: string | null;
+      };
 
       if (!whitelistData?.exists) {
-        setError('You are not registered for this lesson program.');
+        setError("You are not registered for this lesson program.");
         setLoading(false);
         return;
       }
 
       if (!whitelistData.is_used) {
-        setError('You have not set up your account yet. Please use "First Time Access" below.');
+        setError(
+          'You have not set up your account yet. Please use "First Time Access" below.',
+        );
         setLoading(false);
         return;
       }
@@ -59,14 +73,14 @@ const Login = () => {
       });
 
       if (signInError) {
-        setError('Invalid email or password.');
+        setError("Invalid email or password.");
         setLoading(false);
         return;
       }
 
-      navigate('/dashboard', { replace: true });
+      navigate("/dashboard", { replace: true });
     } catch {
-      setError('Something went wrong. Please try again.');
+      setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -74,46 +88,56 @@ const Login = () => {
 
   const handleFirstTimeAccess = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     try {
       // Check whitelist
-      const { data: rawData2, error: whitelistError } = await supabase
-        .rpc('check_email_whitelist', { check_email: email.trim() });
+      const { data: rawData2, error: whitelistError } = await supabase.rpc(
+        "check_email_whitelist",
+        { check_email: email.trim() },
+      );
 
       if (whitelistError) throw whitelistError;
 
-      const whitelistData = rawData2 as unknown as { exists: boolean; is_used: boolean; linked_user_id: string | null };
+      const whitelistData = rawData2 as unknown as {
+        exists: boolean;
+        is_used: boolean;
+        linked_user_id: string | null;
+      };
 
       if (!whitelistData?.exists) {
-        setError('You are not registered for this lesson program.');
+        setError("You are not registered for this lesson program.");
         setLoading(false);
         return;
       }
 
       if (whitelistData.is_used) {
-        setError('This email already has an account. Please use the login form instead.');
+        setError(
+          "This email already has an account. Please use the login form instead.",
+        );
         setLoading(false);
         return;
       }
 
       // Verify general password
-      const { data: passwordValid, error: pwError } = await supabase
-        .rpc('verify_general_password', { input_password: generalPassword });
+      const { data: passwordValid, error: pwError } = await supabase.rpc(
+        "verify_general_password",
+        { input_password: generalPassword },
+      );
 
       if (pwError) throw pwError;
 
       if (!passwordValid) {
-        setError('Invalid access password. Please contact your instructor.');
+        setError("Invalid access password. Please contact your instructor.");
         setLoading(false);
         return;
       }
 
       // Proceed to account setup
-      navigate('/setup', { state: { email: email.trim() } });
+      navigate("/setup", { state: { email: email.trim() } });
     } catch {
-      setError('Something went wrong. Please try again.');
+      setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -125,7 +149,10 @@ const Login = () => {
         <div className="container mx-auto flex items-center px-4 py-4">
           <Link to="/" className="flex items-center gap-2">
             <BookOpen className="h-6 w-6 text-primary" />
-            <span className="text-lg font-bold text-foreground" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+            <span
+              className="text-lg font-bold text-foreground"
+              style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
+            >
               MEEKAH
             </span>
           </Link>
@@ -135,13 +162,16 @@ const Login = () => {
       <main className="flex flex-1 items-center justify-center px-4 py-12">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
-              {mode === 'login' ? 'Welcome Back' : 'First Time Access'}
+            <CardTitle
+              className="text-2xl"
+              style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
+            >
+              {mode === "login" ? "Welcome Back" : "First Time Access"}
             </CardTitle>
             <CardDescription>
-              {mode === 'login'
-                ? 'Sign in with your personal credentials'
-                : 'Enter your email and the access password provided by your instructor'}
+              {mode === "login"
+                ? "Sign in with your personal credentials"
+                : "Enter your email and the access password provided by your instructor"}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -152,7 +182,7 @@ const Login = () => {
               </div>
             )}
 
-            {mode === 'login' ? (
+            {mode === "login" ? (
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
@@ -177,7 +207,7 @@ const Login = () => {
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? 'Signing in…' : 'Sign In'}
+                  {loading ? "Signing in…" : "Sign In"}
                 </Button>
               </form>
             ) : (
@@ -205,7 +235,7 @@ const Login = () => {
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? 'Verifying…' : 'Continue'}
+                  {loading ? "Verifying…" : "Continue"}
                 </Button>
               </form>
             )}
@@ -215,13 +245,13 @@ const Login = () => {
                 type="button"
                 className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                 onClick={() => {
-                  setMode(mode === 'login' ? 'first-time' : 'login');
-                  setError('');
+                  setMode(mode === "login" ? "first-time" : "login");
+                  setError("");
                 }}
               >
-                {mode === 'login'
+                {mode === "login"
                   ? "First time? Set up your account"
-                  : 'Already have an account? Sign in'}
+                  : "Already have an account? Sign in"}
               </button>
             </div>
           </CardContent>

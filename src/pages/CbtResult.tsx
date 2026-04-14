@@ -2,11 +2,9 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BookOpen, LogOut, Trophy, Target, CheckCircle2, XCircle, RotateCcw } from 'lucide-react';
+import { Trophy, Target, CheckCircle2, XCircle, RotateCcw, ArrowRight } from 'lucide-react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { Progress } from '@/components/ui/progress';
-import { cn } from '@/lib/utils';
+import DashboardLayout from '@/components/DashboardLayout';
 
 type SubjectScore = {
   correct: number;
@@ -15,7 +13,7 @@ type SubjectScore = {
 };
 
 const CbtResult = () => {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const [result, setResult] = useState<{
@@ -54,145 +52,179 @@ const CbtResult = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Loading results…</p>
-      </div>
+      <DashboardLayout>
+        <div className="bg-[#0B0B0B] min-h-full flex items-center justify-center">
+          <p className="text-[#B0B0B0]">Loading results…</p>
+        </div>
+      </DashboardLayout>
     );
   }
 
   if (!result) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center flex-col gap-4">
-        <p className="text-muted-foreground">Result not found</p>
-        <Link to="/dashboard"><Button>Back to Dashboard</Button></Link>
-      </div>
+      <DashboardLayout>
+        <div className="bg-[#0B0B0B] min-h-full flex items-center justify-center flex-col gap-4">
+          <p className="text-[#B0B0B0]">Result not found</p>
+          <Link to="/dashboard">
+            <Button className="bg-[#FFD700] hover:bg-yellow-500 text-[#0B0B0B] font-bold">Back to Dashboard</Button>
+          </Link>
+        </div>
+      </DashboardLayout>
     );
   }
 
   const scorePercent = Math.round((result.correct_answers / result.total_questions) * 100);
   const subjectEntries = Object.entries(result.subject_scores);
+  const isPassing = scorePercent >= 50;
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border">
-        <div className="container mx-auto flex items-center justify-between px-4 py-3">
-          <Link to="/dashboard" className="flex items-center gap-2">
-            <BookOpen className="h-6 w-6 text-primary" />
-            <span className="text-lg font-bold text-foreground font-heading">MEEKAH</span>
-          </Link>
-          <Button variant="ghost" size="sm" onClick={signOut} className="gap-2">
-            <LogOut className="h-4 w-4" /> <span className="hidden sm:inline">Sign Out</span>
-          </Button>
-        </div>
-      </header>
+    <DashboardLayout>
+      <div className="bg-[#0B0B0B] min-h-full px-6 py-8">
+        <div className="max-w-4xl mx-auto">
+          
+          {/* Heading */}
+          <div className="text-center mb-12">
+            <h1 className="text-5xl md:text-6xl font-heading font-bold text-white mb-2">
+              Exam Complete! 🎉
+            </h1>
+            <p className="text-[#B0B0B0] text-lg">
+              {new Date(result.created_at).toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </p>
+          </div>
 
-      <main className="container mx-auto px-4 py-6 md:py-8 max-w-2xl">
-        <div className="space-y-6">
-          {/* Overall score */}
-          <Card className="text-center">
-            <CardContent className="pt-8 pb-8 space-y-4">
-              <div className={cn(
-                'mx-auto flex h-20 w-20 items-center justify-center rounded-full',
-                scorePercent >= 50 ? 'bg-green-500/10' : 'bg-red-500/10'
-              )}>
-                <Trophy className={cn(
-                  'h-10 w-10',
-                  scorePercent >= 50 ? 'text-green-500' : 'text-red-500'
-                )} />
-              </div>
+          {/* Main Score Card */}
+          <div className="bg-gradient-to-br from-[#111111] to-[#0B0B0B] border-2 border-[#FFD700] rounded-2xl p-12 mb-12 text-center">
+            <div className={`w-24 h-24 mx-auto rounded-full flex items-center justify-center mb-8 ${
+              isPassing
+                ? 'bg-green-500/20 border-2 border-green-500'
+                : 'bg-red-500/20 border-2 border-red-500'
+            }`}>
+              <Trophy className={`h-12 w-12 ${isPassing ? 'text-green-400' : 'text-red-400'}`} />
+            </div>
+            
+            <p className="text-[#B0B0B0] text-lg mb-4">Your Score</p>
+            <div className={`text-7xl font-heading font-bold mb-8 ${
+              isPassing ? 'text-[#FFD700]' : 'text-red-400'
+            }`}>
+              {scorePercent}%
+            </div>
 
-              <div>
-                <h1 className="text-3xl font-bold font-heading">CBT Exam Complete</h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {new Date(result.created_at).toLocaleDateString('en-US', {
-                    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-                  })}
-                </p>
-              </div>
+            {isPassing && (
+              <p className="text-green-400 font-semibold text-lg">Outstanding! You passed! 🌟</p>
+            )}
+            {!isPassing && scorePercent >= 40 && (
+              <p className="text-yellow-400 font-semibold text-lg">Almost there! Keep practicing! 💪</p>
+            )}
+            {scorePercent < 40 && (
+              <p className="text-blue-400 font-semibold text-lg">Great effort! More practice needed 📚</p>
+            )}
+          </div>
 
-              <div className={cn(
-                'text-5xl font-bold font-heading',
-                scorePercent >= 50 ? 'text-green-600' : 'text-red-500'
-              )}>
-                {scorePercent}%
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <div className="flex items-center justify-center gap-1.5 text-xl font-bold font-heading">
-                    <Target className="h-5 w-5 text-primary" />
-                    {result.total_questions}
-                  </div>
-                  <div className="text-xs text-muted-foreground">Total</div>
+          {/* Stats Grid */}
+          <div className="grid md:grid-cols-3 gap-6 mb-12">
+            <div className="bg-[#111111] border border-[#1A1A1A] rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-12 h-12 bg-[#1A1A1A] rounded-lg flex items-center justify-center">
+                  <Target className="h-6 w-6 text-[#FFD700]" />
                 </div>
                 <div>
-                  <div className="flex items-center justify-center gap-1.5 text-xl font-bold font-heading text-green-600">
-                    <CheckCircle2 className="h-5 w-5" />
-                    {result.correct_answers}
-                  </div>
-                  <div className="text-xs text-muted-foreground">Correct</div>
-                </div>
-                <div>
-                  <div className="flex items-center justify-center gap-1.5 text-xl font-bold font-heading text-red-500">
-                    <XCircle className="h-5 w-5" />
-                    {result.total_questions - result.correct_answers}
-                  </div>
-                  <div className="text-xs text-muted-foreground">Wrong</div>
+                  <p className="text-[#B0B0B0] text-sm">Total Questions</p>
+                  <p className="text-3xl font-heading font-bold text-white">{result.total_questions}</p>
                 </div>
               </div>
+            </div>
 
-              <Progress value={scorePercent} className="h-3 mt-2" />
-            </CardContent>
-          </Card>
+            <div className="bg-[#111111] border border-green-500/30 rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
+                  <CheckCircle2 className="h-6 w-6 text-green-400" />
+                </div>
+                <div>
+                  <p className="text-[#B0B0B0] text-sm">Correct Answers</p>
+                  <p className="text-3xl font-heading font-bold text-green-400">{result.correct_answers}</p>
+                </div>
+              </div>
+            </div>
 
-          {/* Per-subject breakdown */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-heading">Subject Breakdown</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {subjectEntries.map(([subId, score]) => {
-                const pct = score.total > 0 ? Math.round((score.correct / score.total) * 100) : 0;
+            <div className="bg-[#111111] border border-red-500/30 rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-12 h-12 bg-red-500/20 rounded-lg flex items-center justify-center">
+                  <XCircle className="h-6 w-6 text-red-400" />
+                </div>
+                <div>
+                  <p className="text-[#B0B0B0] text-sm">Wrong Answers</p>
+                  <p className="text-3xl font-heading font-bold text-red-400">{result.total_questions - result.correct_answers}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Subject Breakdown */}
+          <div className="mb-12">
+            <h2 className="text-2xl font-heading font-bold text-white mb-6">Subject Performance</h2>
+            <div className="grid md:grid-cols-2 gap-6">
+              {subjectEntries.map(([key, subject]) => {
+                const percentage = Math.round((subject.correct / subject.total) * 100);
                 return (
-                  <div key={subId} className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{score.name}</span>
-                      <span className={cn(
-                        'text-sm font-bold',
-                        pct >= 50 ? 'text-green-600' : 'text-red-500'
-                      )}>
-                        {score.correct}/{score.total} ({pct}%)
+                  <div
+                    key={key}
+                    className="bg-[#111111] border border-[#1A1A1A] rounded-2xl p-6"
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-white">{subject.name}</h3>
+                      <span className={`text-lg font-bold ${
+                        percentage >= 60 ? 'text-green-400' : percentage >= 40 ? 'text-yellow-400' : 'text-red-400'
+                      }`}>
+                        {percentage}%
                       </span>
                     </div>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div className="w-full h-2 bg-[#0B0B0B] rounded-full overflow-hidden mb-2">
                       <div
-                        className={cn(
-                          'h-full rounded-full transition-all',
-                          pct >= 50 ? 'bg-green-500' : 'bg-red-500'
-                        )}
-                        style={{ width: `${pct}%` }}
+                        className={`h-full smooth-transition ${
+                          percentage >= 60
+                            ? 'bg-green-500'
+                            : percentage >= 40
+                            ? 'bg-yellow-500'
+                            : 'bg-red-500'
+                        }`}
+                        style={{ width: `${percentage}%` }}
                       />
                     </div>
+                    <p className="text-sm text-[#B0B0B0]">
+                      {subject.correct} out of {subject.total} correct
+                    </p>
                   </div>
                 );
               })}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          {/* Actions */}
-          <div className="flex flex-col gap-3 sm:flex-row">
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4">
             <Link to="/cbt/setup" className="flex-1">
-              <Button variant="outline" size="lg" className="w-full gap-2">
-                <RotateCcw className="h-4 w-4" /> Take Another Exam
+              <Button className="w-full bg-[#FFD700] hover:bg-yellow-500 text-[#0B0B0B] font-bold h-12">
+                Try Another Exam
+                <RotateCcw className="ml-2 h-5 w-5" />
               </Button>
             </Link>
             <Link to="/dashboard" className="flex-1">
-              <Button size="lg" className="w-full">Back to Dashboard</Button>
+              <Button
+                variant="outline"
+                className="w-full border-[#1A1A1A] text-[#B0B0B0] hover:bg-[#111111] h-12 font-bold"
+              >
+                Back to Dashboard
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
             </Link>
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 };
 

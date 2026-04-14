@@ -37,17 +37,94 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/setup" element={<AccountSetup />} />
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/practice" element={<ProtectedRoute><Practice /></ProtectedRoute>} />
-            <Route path="/cbt/setup" element={<ProtectedRoute><CbtSetup /></ProtectedRoute>} />
-            <Route path="/cbt/exam/:sessionId" element={<ProtectedRoute><CbtExam /></ProtectedRoute>} />
-            <Route path="/cbt/result/:sessionId" element={<ProtectedRoute><CbtResult /></ProtectedRoute>} />
-            <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-            <Route path="/admin/students" element={<AdminRoute><AllowedStudents /></AdminRoute>} />
-            <Route path="/admin/subjects" element={<AdminRoute><Subjects /></AdminRoute>} />
-            <Route path="/admin/topics" element={<AdminRoute><Topics /></AdminRoute>} />
-            <Route path="/admin/questions" element={<AdminRoute><QuestionBank /></AdminRoute>} />
-            <Route path="/admin/auto-generate" element={<AdminRoute><AutoGenerateQuestions /></AdminRoute>} />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/practice"
+              element={
+                <ProtectedRoute>
+                  <Practice />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/cbt/setup"
+              element={
+                <ProtectedRoute>
+                  <CbtSetup />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/cbt/exam/:sessionId"
+              element={
+                <ProtectedRoute>
+                  <CbtExam />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/cbt/result/:sessionId"
+              element={
+                <ProtectedRoute>
+                  <CbtResult />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <AdminRoute>
+                  <AdminDashboard />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/students"
+              element={
+                <AdminRoute>
+                  <AllowedStudents />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/subjects"
+              element={
+                <AdminRoute>
+                  <Subjects />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/topics"
+              element={
+                <AdminRoute>
+                  <Topics />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/questions"
+              element={
+                <AdminRoute>
+                  <QuestionBank />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/auto-generate"
+              element={
+                <AdminRoute>
+                  <AutoGenerateQuestions />
+                </AdminRoute>
+              }
+            />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

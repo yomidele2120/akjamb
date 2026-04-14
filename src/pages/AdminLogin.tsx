@@ -1,30 +1,36 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BookOpen, AlertCircle, ShieldCheck } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { BookOpen, AlertCircle, ShieldCheck } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   // Redirect if already logged in
   if (user) {
-    navigate('/admin', { replace: true });
+    navigate("/admin", { replace: true });
     return null;
   }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     try {
@@ -34,35 +40,37 @@ const AdminLogin = () => {
       });
 
       if (signInError) {
-        setError('Invalid email or password.');
+        setError("Invalid email or password.");
         setLoading(false);
         return;
       }
 
       // Check if user is admin using their auth id
-      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
       if (!authUser) {
-        setError('Authentication failed.');
+        setError("Authentication failed.");
         setLoading(false);
         return;
       }
 
       const { data: userData } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', authUser.id)
+        .from("users")
+        .select("role")
+        .eq("id", authUser.id)
         .single();
 
-      if (userData?.role !== 'admin') {
+      if (userData?.role !== "admin") {
         await supabase.auth.signOut();
-        setError('Access denied. This login is for administrators only.');
+        setError("Access denied. This login is for administrators only.");
         setLoading(false);
         return;
       }
 
-      navigate('/admin', { replace: true });
+      navigate("/admin", { replace: true });
     } catch {
-      setError('Something went wrong. Please try again.');
+      setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -87,9 +95,7 @@ const AdminLogin = () => {
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
               <ShieldCheck className="h-6 w-6 text-primary" />
             </div>
-            <CardTitle className="text-2xl font-heading">
-              Admin Login
-            </CardTitle>
+            <CardTitle className="text-2xl font-heading">Admin Login</CardTitle>
             <CardDescription>
               Sign in with your administrator credentials
             </CardDescription>
@@ -126,7 +132,7 @@ const AdminLogin = () => {
                 />
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Signing in…' : 'Sign In as Admin'}
+                {loading ? "Signing in…" : "Sign In as Admin"}
               </Button>
             </form>
 
