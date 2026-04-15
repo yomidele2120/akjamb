@@ -1,15 +1,11 @@
 /**
  * Enhanced Question Generation with Multi-AI Pipeline
  * 
- * PIPELINE STAGES:
- * 1. Lovable AI: Generates raw questions
- * 2. Together AI: Refines and improves quality (optional)
- * 3. Gemini AI: Validates correctness (optional)
- * 4. Quality Control: Removes duplicates and invalid questions
- * 5. Database Save: Stores final validated questions
+ * This replaces the existing generate-questions function to use a coordinated
+ * approach with Lovable AI (generator), Together AI (refiner), and Gemini AI (validator).
  * 
- * FALLBACK LOGIC: If any stage fails, continues with previous output
- * This ensures questions are always generated even if refinement/validation fails
+ * API Endpoint: /generate-questions
+ * This maintains the same request/response contract as the original function.
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -33,7 +29,7 @@ interface Question {
   type: "theory" | "calculation";
 }
 
-// ==================== HELPER FUNCTIONS ====================
+// ==================== PIPELINE FUNCTIONS ====================
 
 function parseJsonResponse(content: string): any {
   try {
@@ -113,13 +109,12 @@ function performQualityControl(questions: any[]): Question[] {
   return cleaned;
 }
 
-// ==================== AI PIPELINE STAGES ====================
-
 async function generateWithLovable(
   prompt: string,
   apiKey: string,
+  questionCount: number,
 ): Promise<Question[]> {
-  console.log("[Lovable AI] Generating raw questions...");
+  console.log("[Lovable] Generating raw questions...");
 
   const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -137,9 +132,7 @@ async function generateWithLovable(
 
   if (!resp.ok) {
     const errText = await resp.text();
-    console.error("[Lovable AI] Error:", resp.status, errText);
-    if (resp.status === 429) throw new Error("AI rate limit. Please try again in a moment.");
-    if (resp.status === 402) throw new Error("AI credits required. Please add funds.");
+    console.error("[Lovable] Error:", resp.status, errText);
     throw new Error(`Lovable AI failed: ${resp.status}`);
   }
 
@@ -149,7 +142,7 @@ async function generateWithLovable(
 
   const parsed = parseJsonResponse(content);
   const questions = parsed.questions || [];
-  console.log(`[Lovable AI] ✓ Generated ${questions.length} questions`);
+  console.log(`[Lovable] Generated ${questions.length} questions`);
   return questions;
 }
 
@@ -157,23 +150,23 @@ async function refineWithTogetherAI(
   questions: Question[],
   apiKey: string,
 ): Promise<Question[]> {
-  console.log("[Together AI] Refining questions...");
+  console.log("[Together] Refining questions...");
 
   if (!questions.length) return [];
 
-  const prompt = `You are an expert JAMB exam question refiner. Your job is to improve the quality of these exam questions:
+  const prompt = `You are an expert JAMB exam question refiner. Improve these questions:
 
 1. Clarify wording and fix grammar
 2. Enhance JAMB exam style consistency
-3. Improve distractors (make wrong options more challenging and plausible)
+3. Improve distractors (make wrong options more challenging)
 4. Ensure explanations are clear and step-by-step
 5. Remove ambiguous phrasing
 6. Standardize formatting
 
-Questions to refine:
+Questions:
 ${JSON.stringify(questions, null, 2)}
 
-Return ONLY valid JSON with improved questions (keep same structure and field names).`;
+Return ONLY valid JSON with improved questions (same structure).`;
 
   const resp = await fetch("https://api.together.ai/v1/chat/completions", {
     method: "POST",
@@ -191,8 +184,8 @@ Return ONLY valid JSON with improved questions (keep same structure and field na
 
   if (!resp.ok) {
     const errText = await resp.text();
-    console.error("[Together AI] Error:", resp.status, errText);
-    console.warn("[Together AI] Refinement skipped, using unrefined questions");
+    console.error("[Together] Error:", resp.status, errText);
+    console.warn("[Together] Skipping refinement, using unrefined questions");
     return questions;
   }
 
@@ -203,10 +196,10 @@ Return ONLY valid JSON with improved questions (keep same structure and field na
   try {
     const parsed = parseJsonResponse(content);
     const refined = parsed.questions || [];
-    console.log(`[Together AI] ✓ Refined ${refined.length} questions`);
+    console.log(`[Together] Refined ${refined.length} questions`);
     return refined.length > 0 ? refined : questions;
   } catch (e) {
-    console.warn("[Together AI] Parse error, using unrefined questions");
+    console.warn("[Together] Parse error, using unrefined questions");
     return questions;
   }
 }
@@ -215,31 +208,23 @@ async function validateWithGemini(
   questions: Question[],
   apiKey: string,
 ): Promise<Question[]> {
-  console.log("[Gemini AI] Validating questions...");
+  console.log("[Gemini] Validating questions...");
 
   if (!questions.length) return [];
 
-  const prompt = `You are an academic validator for JAMB CBT exam questions. Your job is to validate and correct these questions:
+  const prompt = `You are an academic validator for JAMB exam questions. Validate and correct:
 
-VALIDATION CHECKS:
 1. Verify correct answer matches explanation
 2. Check for duplicate options
-3. Ensure only ONE correct answer per question
+3. Ensure only ONE correct answer
 4. Validate question clarity and completeness
-5. Verify explanations are accurate and educational
-6. Fix any incorrect answers or explanations
-7. Ensure no ambiguous wording
+5. Verify explanations are accurate
+6. Fix incorrect answers/explanations
 
-Questions to validate:
+Questions:
 ${JSON.stringify(questions, null, 2)}
 
-For any issues found:
-- Correct the answer if wrong
-- Rewrite explanation for accuracy
-- Fix ambiguous wording
-- Replace duplicate options
-
-Return ONLY valid JSON with corrected questions (keep same structure and field names).`;
+Return ONLY valid JSON with corrected questions (same structure).`;
 
   const resp = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
@@ -264,8 +249,8 @@ Return ONLY valid JSON with corrected questions (keep same structure and field n
 
   if (!resp.ok) {
     const errText = await resp.text();
-    console.error("[Gemini AI] Error:", resp.status, errText);
-    console.warn("[Gemini AI] Validation skipped, using unvalidated questions");
+    console.error("[Gemini] Error:", resp.status, errText);
+    console.warn("[Gemini] Skipping validation, using unvalidated questions");
     return questions;
   }
 
@@ -276,10 +261,10 @@ Return ONLY valid JSON with corrected questions (keep same structure and field n
   try {
     const parsed = parseJsonResponse(content);
     const validated = parsed.questions || [];
-    console.log(`[Gemini AI] ✓ Validated ${validated.length} questions`);
+    console.log(`[Gemini] Validated ${validated.length} questions`);
     return validated.length > 0 ? validated : questions;
   } catch (e) {
-    console.warn("[Gemini AI] Parse error, using unvalidated questions");
+    console.warn("[Gemini] Parse error, using unvalidated questions");
     return questions;
   }
 }
@@ -331,11 +316,10 @@ serve(async (req) => {
     if (!lovableApiKey) throw new Error("AI not configured");
 
     console.log(
-      `[Multi-AI Pipeline] Starting for ${subject_name} > ${topic_name} (${questionCount} questions)`,
+      `[Multi-AI Pipeline] Generating ${questionCount} questions for ${subject_name} > ${topic_name}`,
     );
-    console.log(`[Multi-AI Pipeline] APIs available: Lovable(✓) Together(${togetherApiKey ? "✓" : "✗"}) Gemini(${geminiApiKey ? "✓" : "✗"})`);
 
-    // STEP 1: Generate with Lovable AI
+    // Step 1: Generate with Lovable AI
     const lovablePrompt = `You are a JAMB CBT question generator for Nigeria. Generate exactly ${questionCount} high-quality multiple-choice questions.
 
 Subject: ${subject_name}
@@ -348,39 +332,43 @@ REQUIREMENTS:
 - Each question must have exactly 4 options (A, B, C, D)
 - Include clear step-by-step explanations
 - No duplicates, cover different aspects
-- Exam-quality standards required
+- Exam-quality standards
 
-Return JSON only with "questions" array field. No extra text.`;
+Return JSON only, no extra text.`;
 
-    let questions = await generateWithLovable(lovablePrompt, lovableApiKey);
+    let questions = await generateWithLovable(
+      lovablePrompt,
+      lovableApiKey,
+      questionCount,
+    );
 
     if (!questions.length) {
       throw new Error("Lovable AI generated no questions");
     }
 
-    // STEP 2: Refine with Together AI (if available)
+    // Step 2: Refine with Together AI (if available)
     if (togetherApiKey && togetherApiKey.length > 0) {
       try {
         questions = await refineWithTogetherAI(questions, togetherApiKey);
       } catch (e) {
-        console.warn("[Multi-AI Pipeline] Refinement error:", e instanceof Error ? e.message : e);
+        console.warn("[Multi-AI Pipeline] Refinement skipped:", e);
       }
     } else {
-      console.log("[Together AI] Not configured, skipping refinement");
+      console.log("[Together] Not configured, skipping refinement");
     }
 
-    // STEP 3: Validate with Gemini AI (if available)
+    // Step 3: Validate with Gemini AI (if available)
     if (geminiApiKey && geminiApiKey.length > 0) {
       try {
         questions = await validateWithGemini(questions, geminiApiKey);
       } catch (e) {
-        console.warn("[Multi-AI Pipeline] Validation error:", e instanceof Error ? e.message : e);
+        console.warn("[Multi-AI Pipeline] Validation skipped:", e);
       }
     } else {
-      console.log("[Gemini AI] Not configured, skipping validation");
+      console.log("[Gemini] Not configured, skipping validation");
     }
 
-    // STEP 4: Quality Control
+    // Step 4: Quality Control
     console.log("[Multi-AI Pipeline] Running quality control...");
     const finalQuestions = performQualityControl(questions);
 
@@ -388,7 +376,7 @@ Return JSON only with "questions" array field. No extra text.`;
       throw new Error("No questions passed quality control");
     }
 
-    // STEP 5: Save to Database
+    // Step 5: Save to Database
     console.log("[Multi-AI Pipeline] Saving to database...");
     const adminClient = createClient(supabaseUrl, supabaseKey);
 
@@ -418,7 +406,7 @@ Return JSON only with "questions" array field. No extra text.`;
     }
 
     console.log(
-      `[Multi-AI Pipeline] ✓ Complete! ${totalInserted} questions generated and saved`,
+      `[Multi-AI Pipeline] Successfully generated and saved ${totalInserted} questions`,
     );
 
     return new Response(

@@ -27,39 +27,54 @@ const StudentAnalytics = () => {
   };
 
   const getGradeColor = (score: number) => {
-    if (score >= 80) return 'text-green-500';
-    if (score >= 70) return 'text-blue-500';
-    if (score >= 60) return 'text-yellow-500';
-    return 'text-red-500';
+    if (score >= 80) return 'text-green-400';
+    if (score >= 70) return 'text-blue-400';
+    if (score >= 60) return 'text-yellow-400';
+    return 'text-red-400';
+  };
+
+  const getProgressColor = (score: number) => {
+    if (score >= 80) return 'bg-green-500';
+    if (score >= 70) return 'bg-blue-500';
+    if (score >= 60) return 'bg-yellow-500';
+    return 'bg-red-500';
   };
 
   const StatCard = ({
     icon: Icon,
     title,
     value,
-    description,
-    color,
+    badge,
+    iconBg,
+    valueColor,
   }: {
     icon: any;
     title: string;
     value: string | number;
-    description?: string;
-    color?: string;
+    badge?: string;
+    iconBg: string;
+    valueColor: string;
   }) => (
-    <Card className="bg-[#111111] border-[#1A1A1A] hover:border-[#FFD700] transition">
-      <CardContent className="pt-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-[#B0B0B0] text-sm mb-2">{title}</p>
-            <p className={`text-3xl font-bold ${color || 'text-[#FFD700]'}`}>{value}</p>
-            {description && <p className="text-xs text-[#B0B0B0] mt-2">{description}</p>}
+    <div className="group relative">
+      <div className="absolute inset-0 bg-gradient-to-br from-[#1A1A1A] to-[#0B0B0B] rounded-2xl opacity-0 group-hover:opacity-100 transition-all duration-300 blur-xl -z-10" />
+      <Card className="bg-gradient-to-br from-[#1A1A1A] to-[#0F0F0F] border border-[#2A2A2A] hover:border-[#FFD700]/50 transition-all duration-300 rounded-2xl h-full">
+        <CardContent className="pt-8 pb-8 px-6 h-full flex flex-col">
+          <div className="flex items-start justify-between mb-6">
+            <div className={`${iconBg} p-4 rounded-xl`}>
+              <Icon className="h-6 w-6 text-white" />
+            </div>
+            {badge && (
+              <span className="bg-orange-500/20 border border-orange-500/50 text-orange-400 text-xs font-bold px-3 py-1 rounded-full">
+                {badge}
+              </span>
+            )}
           </div>
-          <div className="bg-[#0B0B0B] p-3 rounded-lg">
-            <Icon className="h-6 w-6 text-[#FFD700]" />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+          
+          <p className="text-[#888888] text-sm font-medium mb-3">{title}</p>
+          <p className={`text-4xl font-black ${valueColor} leading-tight`}>{value}</p>
+        </CardContent>
+      </Card>
+    </div>
   );
 
   return (
@@ -75,60 +90,83 @@ const StudentAnalytics = () => {
         </div>
 
         {loading ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-32 bg-[#111111]" />
-            ))}
-          </div>
+          <>
+            <Skeleton className="h-64 bg-[#111111] mb-12 rounded-2xl" />
+            <div className="grid md:grid-cols-2 gap-6 mb-12">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-40 bg-[#111111] rounded-2xl" />
+              ))}
+            </div>
+          </>
         ) : stats ? (
           <>
-            {/* Stats Grid */}
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-              <StatCard
-                icon={Award}
-                title="Average Score"
-                value={`${Math.round(stats.average_score)}%`}
-                description={`Best: ${stats.best_score}%`}
-                color={getGradeColor(stats.average_score)}
-              />
+            {/* Main Hero Card - Average Score */}
+            <div className="mb-12 group relative">
+              <div className="absolute inset-0 bg-gradient-to-br from-[#1A1A1A] to-[#0B0B0B] rounded-3xl opacity-0 group-hover:opacity-100 transition-all duration-300 blur-2xl -z-10" />
+              <Card className="bg-gradient-to-br from-[#1A1A1A] to-[#0F0F0F] border border-[#2A2A2A] hover:border-[#FFD700]/50 transition-all duration-300 rounded-3xl overflow-hidden">
+                <CardContent className="pt-10 pb-10 px-8">
+                  <div className="mb-8">
+                    <p className="text-[#888888] text-lg font-semibold mb-4">Average Score</p>
+                    <div className="flex items-baseline gap-3">
+                      <p className={`text-6xl font-black ${getGradeColor(stats.average_score)}`}>
+                        {Math.round(stats.average_score)}%
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full bg-orange-500"></span>
+                        <span className="text-[#888888] text-sm">Best: {stats.best_score}%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <label className="text-[#888888] text-sm font-medium">Progress</label>
+                      <span className="text-[#FFD700] font-bold text-lg">{Math.round(stats.average_score)}%</span>
+                    </div>
+                    <div className="w-full bg-[#0B0B0B] rounded-full h-3 overflow-hidden border border-[#2A2A2A]">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${getProgressColor(stats.average_score)}`}
+                        style={{ width: `${Math.min(stats.average_score, 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-[#666666] text-xs mt-3">Based on {stats.total_tests_taken} exam{stats.total_tests_taken !== 1 ? 's' : ''}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Stats Grid - 2x2 */}
+            <div className="grid md:grid-cols-2 gap-6 mb-12">
               <StatCard
                 icon={Target}
                 title="Tests Taken"
                 value={stats.total_tests_taken}
-                description={`${stats.worst_score ? `Worst: ${stats.worst_score}%` : 'Getting started'}`}
+                iconBg="bg-teal-500/20"
+                valueColor="text-teal-400"
+              />
+              <StatCard
+                icon={Clock}
+                title="Time Invested"
+                value={`${Math.floor(stats.total_time_spent_seconds / 3600)}h ${Math.floor((stats.total_time_spent_seconds % 3600) / 60)}m`}
+                iconBg="bg-purple-500/20"
+                valueColor="text-purple-400"
               />
               <StatCard
                 icon={TrendingUp}
                 title="Strongest Subject"
                 value={stats.strongest_subject || 'N/A'}
-                description="Best performance area"
+                iconBg="bg-green-500/20"
+                valueColor="text-green-400"
               />
               <StatCard
                 icon={BookOpen}
                 title="Weakest Subject"
                 value={stats.weakest_subject || 'N/A'}
-                description="Focus area"
+                iconBg="bg-red-500/20"
+                valueColor="text-red-400"
               />
             </div>
-
-            {/* Time Spent Card */}
-            <Card className="bg-[#111111] border-[#1A1A1A] mb-12">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-[#FFD700]" />
-                  Total Time Invested
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-4xl font-bold text-[#FFD700]">
-                  {Math.floor(stats.total_time_spent_seconds / 3600)}h{' '}
-                  {Math.floor((stats.total_time_spent_seconds % 3600) / 60)}m
-                </div>
-                <p className="text-[#B0B0B0] mt-2">
-                  Average per test: {Math.round(stats.total_time_spent_seconds / Math.max(stats.total_tests_taken, 1) / 60)} minutes
-                </p>
-              </CardContent>
-            </Card>
 
             {/* Performance Insights */}
             <div className="mb-12">

@@ -32,13 +32,13 @@ const Leaderboard = ({
   const getMedalColor = (rank: number): string => {
     switch (rank) {
       case 1:
-        return 'bg-yellow-500/20 border-yellow-500';
+        return 'bg-[#FFD700]/10 border-[#FFD700]/40';
       case 2:
-        return 'bg-gray-400/20 border-gray-400';
+        return 'bg-[#B0B0B0]/10 border-[#B0B0B0]/30';
       case 3:
-        return 'bg-orange-500/20 border-orange-500';
+        return 'bg-[#FF9800]/10 border-[#FF9800]/30';
       default:
-        return 'bg-[#111111] border-[#1A1A1A]';
+        return 'bg-[#1A1A2E] border-[#2A2A3E]';
     }
   };
 
